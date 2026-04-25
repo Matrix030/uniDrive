@@ -1,10 +1,16 @@
 package edu.nyu.unidrive.server.controller;
 
 import edu.nyu.unidrive.common.dto.ApiResponse;
+import edu.nyu.unidrive.common.dto.SubmissionSummaryResponse;
 import edu.nyu.unidrive.common.dto.SubmissionUploadResponse;
+import java.util.List;
 import edu.nyu.unidrive.server.service.SubmissionService;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -19,6 +25,30 @@ public class SubmissionController {
 
     public SubmissionController(SubmissionService submissionService) {
         this.submissionService = submissionService;
+    }
+
+    @GetMapping("/api/v1/submissions/{submissionId}/download")
+    public ResponseEntity<ByteArrayResource> downloadSubmission(@PathVariable("submissionId") String submissionId) throws Exception {
+        try {
+            SubmissionService.DownloadedSubmission download = submissionService.loadSubmission(submissionId);
+            ByteArrayResource resource = new ByteArrayResource(download.content());
+
+            return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + download.fileName() + "\"")
+                .body(resource);
+        } catch (SubmissionService.SubmissionNotFoundException exception) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/api/v1/submissions")
+    public ResponseEntity<ApiResponse<List<SubmissionSummaryResponse>>> listSubmissions(
+        @RequestParam("assignmentId") String assignmentId,
+        @RequestParam(value = "studentId", required = false) String studentId
+    ) {
+        List<SubmissionSummaryResponse> submissions = submissionService.listSubmissions(assignmentId, studentId);
+        return ResponseEntity.ok(ApiResponse.ok(submissions, "Submissions retrieved successfully."));
     }
 
     @PostMapping("/api/v1/submissions/{assignmentId}")

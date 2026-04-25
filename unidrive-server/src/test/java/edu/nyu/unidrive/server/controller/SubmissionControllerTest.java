@@ -1,6 +1,10 @@
 package edu.nyu.unidrive.server.controller;
 
 import static org.hamcrest.Matchers.matchesPattern;
+import static org.hamcrest.Matchers.startsWith;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -119,8 +123,86 @@ class SubmissionControllerTest {
         org.junit.jupiter.api.Assertions.assertEquals(submissionCountBefore, submissionCount());
     }
 
+    @Test
+    void listSubmissionsReturnsOnlyRowsForRequestedAssignment() throws Exception {
+        uploadSubmission("assignment-1", "rvg9395", "First.java", "class First { }".getBytes());
+        uploadSubmission("assignment-2", "ow2130", "Second.java", "class Second { }".getBytes());
+
+        mockMvc.perform(get("/api/v1/submissions").param("assignmentId", "assignment-1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("ok"))
+            .andExpect(jsonPath("$.message").value("Submissions retrieved successfully."))
+            .andExpect(jsonPath("$.data.length()").value(1))
+            .andExpect(jsonPath("$.data[0].assignmentId").value("assignment-1"))
+            .andExpect(jsonPath("$.data[0].studentId").value("rvg9395"))
+            .andExpect(jsonPath("$.data[0].fileName").value("First.java"))
+            .andExpect(jsonPath("$.data[0].status").value("SYNCED"));
+    }
+
+    @Test
+    void listSubmissionsCanFilterByAssignmentAndStudent() throws Exception {
+        uploadSubmission("assignment-1", "rvg9395", "Alpha.java", "class Alpha { }".getBytes());
+        uploadSubmission("assignment-1", "ow2130", "Beta.java", "class Beta { }".getBytes());
+
+        mockMvc.perform(
+                get("/api/v1/submissions")
+                    .param("assignmentId", "assignment-1")
+                    .param("studentId", "rvg9395")
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("ok"))
+            .andExpect(jsonPath("$.message").value("Submissions retrieved successfully."))
+            .andExpect(jsonPath("$.data.length()").value(1))
+            .andExpect(jsonPath("$.data[0].assignmentId").value("assignment-1"))
+            .andExpect(jsonPath("$.data[0].studentId").value("rvg9395"))
+            .andExpect(jsonPath("$.data[0].fileName").value("Alpha.java"))
+            .andExpect(jsonPath("$.data[0].status").value("SYNCED"));
+    }
+
+    @Test
+    void downloadSubmissionReturnsStoredFileContents() throws Exception {
+        byte[] contentBytes = "class DownloadMe { }".getBytes();
+        uploadSubmission("assignment-1", "rvg9395", "DownloadMe.java", contentBytes);
+
+        String submissionId = jdbcTemplate.queryForObject(
+            "SELECT id FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY submitted_at DESC LIMIT 1",
+            String.class,
+            "assignment-1",
+            "rvg9395"
+        );
+
+        mockMvc.perform(get("/api/v1/submissions/{submissionId}/download", submissionId))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Content-Disposition", startsWith("attachment; filename=\"DownloadMe.java\"")))
+            .andExpect(content().bytes(contentBytes));
+    }
+
+    @Test
+    void downloadSubmissionReturns404WhenSubmissionDoesNotExist() throws Exception {
+        mockMvc.perform(get("/api/v1/submissions/{submissionId}/download", "missing-submission-id"))
+            .andExpect(status().isNotFound());
+    }
+
     private int submissionCount() {
         Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM submissions", Integer.class);
         return count == null ? 0 : count;
+    }
+
+    private void uploadSubmission(String assignmentId, String studentId, String fileName, byte[] content) throws Exception {
+        String sha256 = FileHasher.sha256Hex(content);
+        MockMultipartFile file = new MockMultipartFile(
+            "file",
+            fileName,
+            MediaType.TEXT_PLAIN_VALUE,
+            content
+        );
+
+        mockMvc.perform(
+                multipart("/api/v1/submissions/{assignmentId}", assignmentId)
+                    .file(file)
+                    .param("studentId", studentId)
+                    .header("X-File-Sha256", sha256)
+            )
+            .andExpect(status().isOk());
     }
 }

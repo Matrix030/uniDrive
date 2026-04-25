@@ -1,12 +1,15 @@
 package edu.nyu.unidrive.server.service;
 
+import edu.nyu.unidrive.common.dto.SubmissionSummaryResponse;
 import edu.nyu.unidrive.common.dto.SubmissionUploadResponse;
 import edu.nyu.unidrive.common.model.SyncStatus;
+import edu.nyu.unidrive.server.repository.SubmissionRepository.StoredSubmission;
 import edu.nyu.unidrive.common.util.FileHasher;
 import edu.nyu.unidrive.server.repository.SubmissionRepository;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -68,6 +71,19 @@ public class SubmissionService {
         );
     }
 
+    public List<SubmissionSummaryResponse> listSubmissions(String assignmentId, String studentId) {
+        return submissionRepository.findByFilters(assignmentId, studentId);
+    }
+
+    public DownloadedSubmission loadSubmission(String submissionId) throws IOException {
+        StoredSubmission storedSubmission = submissionRepository.findStoredSubmissionById(submissionId)
+            .orElseThrow(SubmissionNotFoundException::new);
+
+        Path filePath = Path.of(storedSubmission.filePath());
+        byte[] content = Files.readAllBytes(filePath);
+        return new DownloadedSubmission(storedSubmission.originalFileName(), content);
+    }
+
     private String sanitizeFileName(String originalFileName) {
         if (originalFileName == null || originalFileName.isBlank()) {
             return "upload.bin";
@@ -78,5 +94,11 @@ public class SubmissionService {
     }
 
     public static final class HashMismatchException extends RuntimeException {
+    }
+
+    public static final class SubmissionNotFoundException extends RuntimeException {
+    }
+
+    public record DownloadedSubmission(String fileName, byte[] content) {
     }
 }
