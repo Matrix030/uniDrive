@@ -94,10 +94,36 @@ public class SubmissionRepository {
         return submissions.stream().findFirst();
     }
 
+    public Optional<StoredSubmissionDetails> findSubmissionDetailsById(String submissionId) {
+        List<StoredSubmissionDetails> submissions = jdbcTemplate.query(
+            "SELECT id, assignment_id, student_id, file_path, hash, status FROM submissions WHERE id = ?",
+            (resultSet, rowNum) -> new StoredSubmissionDetails(
+                resultSet.getString("id"),
+                resultSet.getString("assignment_id"),
+                resultSet.getString("student_id"),
+                resultSet.getString("file_path"),
+                resultSet.getString("hash"),
+                resultSet.getString("status")
+            ),
+            submissionId
+        );
+        return submissions.stream().findFirst();
+    }
+
     public record StoredSubmission(String id, String filePath) {
         public String originalFileName() {
             String storedFileName = Path.of(filePath).getFileName().toString();
             return storedFileName.substring(id.length() + 1);
         }
+    }
+
+    public record StoredSubmissionDetails(
+        String id,
+        String assignmentId,
+        String studentId,
+        String filePath,
+        String sha256,
+        String status
+    ) {
     }
 }

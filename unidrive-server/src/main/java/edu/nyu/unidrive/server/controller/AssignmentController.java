@@ -1,0 +1,53 @@
+package edu.nyu.unidrive.server.controller;
+
+import edu.nyu.unidrive.common.dto.ApiResponse;
+import edu.nyu.unidrive.common.dto.AssignmentSummaryResponse;
+import edu.nyu.unidrive.server.service.AssignmentService;
+import java.util.List;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+@RestController
+public class AssignmentController {
+
+    private final AssignmentService assignmentService;
+
+    public AssignmentController(AssignmentService assignmentService) {
+        this.assignmentService = assignmentService;
+    }
+
+    @PostMapping("/api/v1/instructor/assignments")
+    public ResponseEntity<ApiResponse<AssignmentSummaryResponse>> publishAssignment(
+        @RequestParam("title") String title,
+        @RequestParam("file") MultipartFile file
+    ) throws Exception {
+        AssignmentSummaryResponse response = assignmentService.publishAssignment(title, file);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Assignment published successfully."));
+    }
+
+    @GetMapping("/api/v1/assignments")
+    public ResponseEntity<ApiResponse<List<AssignmentSummaryResponse>>> listAssignments() {
+        return ResponseEntity.ok(ApiResponse.ok(assignmentService.listAssignments(), "Assignments retrieved successfully."));
+    }
+
+    @GetMapping("/api/v1/assignments/{assignmentId}/download")
+    public ResponseEntity<ByteArrayResource> downloadAssignment(@PathVariable("assignmentId") String assignmentId) throws Exception {
+        try {
+            AssignmentService.DownloadedAssignment download = assignmentService.loadAssignment(assignmentId);
+            return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + download.fileName() + "\"")
+                .body(new ByteArrayResource(download.content()));
+        } catch (AssignmentService.AssignmentNotFoundException exception) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+}
