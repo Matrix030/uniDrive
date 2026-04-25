@@ -1,15 +1,15 @@
 package edu.nyu.unidrive.client;
 
 import edu.nyu.unidrive.client.storage.ClientWorkspace;
-import edu.nyu.unidrive.client.storage.FolderBootstrapService;
+import edu.nyu.unidrive.client.storage.WorkspaceBootstrapService;
 import java.nio.file.Path;
 
 public final class ClientRuntimeService {
 
-    private final FolderBootstrapService folderBootstrapService;
+    private final WorkspaceBootstrapService folderBootstrapService;
     private final SyncServiceFactory syncServiceFactory;
 
-    public ClientRuntimeService(FolderBootstrapService folderBootstrapService, SyncServiceFactory syncServiceFactory) {
+    public ClientRuntimeService(WorkspaceBootstrapService folderBootstrapService, SyncServiceFactory syncServiceFactory) {
         this.folderBootstrapService = folderBootstrapService;
         this.syncServiceFactory = syncServiceFactory;
     }

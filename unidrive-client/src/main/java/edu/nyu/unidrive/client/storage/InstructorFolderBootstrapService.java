@@ -3,28 +3,27 @@ package edu.nyu.unidrive.client.storage;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public final class FolderBootstrapService implements WorkspaceBootstrapService {
+public final class InstructorFolderBootstrapService {
 
-    @Override
-    public ClientWorkspace bootstrap(Path rootDirectory) {
-        Path assignmentsDirectory = rootDirectory.resolve("Assignments");
+    public InstructorWorkspace bootstrap(Path rootDirectory) {
+        Path publishDirectory = rootDirectory.resolve("Publish");
         Path submissionsDirectory = rootDirectory.resolve("Submissions");
         Path feedbackDirectory = rootDirectory.resolve("Feedback");
         Path databasePath = rootDirectory.resolve("sync-state.db");
 
         try {
-            Files.createDirectories(assignmentsDirectory);
+            Files.createDirectories(publishDirectory);
             Files.createDirectories(submissionsDirectory);
             Files.createDirectories(feedbackDirectory);
         } catch (Exception exception) {
-            throw new IllegalStateException("Failed to create client workspace folders.", exception);
+            throw new IllegalStateException("Failed to create instructor workspace folders.", exception);
         }
 
         new SyncStateRepository(databasePath);
 
-        return new ClientWorkspace(
+        return new InstructorWorkspace(
             rootDirectory,
-            assignmentsDirectory,
+            publishDirectory,
             submissionsDirectory,
             feedbackDirectory,
             databasePath
