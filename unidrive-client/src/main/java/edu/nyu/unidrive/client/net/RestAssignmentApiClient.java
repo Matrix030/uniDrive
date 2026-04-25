@@ -4,9 +4,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.nyu.unidrive.common.dto.AssignmentSummaryResponse;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 public final class RestAssignmentApiClient implements AssignmentApiClient {
@@ -44,6 +52,43 @@ public final class RestAssignmentApiClient implements AssignmentApiClient {
             byte[].class
         );
         return new DownloadedFile(extractFileName(response), response.getBody() == null ? new byte[0] : response.getBody());
+    }
+
+    @Override
+    public AssignmentSummaryResponse publishAssignment(String title, Path file) throws IOException {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("title", title);
+        body.add("file", new NamedByteArrayResource(file.getFileName().toString(), Files.readAllBytes(file)));
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+            baseUrl + "/api/v1/instructor/assignments",
+            new HttpEntity<>(body, headers),
+            String.class
+        );
+        JsonNode dataNode = objectMapper.readTree(response.getBody()).path("data");
+        return new AssignmentSummaryResponse(
+            dataNode.path("assignmentId").asText(),
+            dataNode.path("title").asText(),
+            dataNode.path("fileName").asText(),
+            dataNode.path("sha256").asText()
+        );
+    }
+
+    private static final class NamedByteArrayResource extends ByteArrayResource {
+        private final String filename;
+
+        private NamedByteArrayResource(String filename, byte[] byteArray) {
+            super(byteArray);
+            this.filename = filename;
+        }
+
+        @Override
+        public String getFilename() {
+            return filename;
+        }
     }
 
     private String extractFileName(ResponseEntity<?> response) {

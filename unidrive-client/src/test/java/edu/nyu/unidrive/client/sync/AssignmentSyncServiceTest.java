@@ -42,5 +42,10 @@ class AssignmentSyncServiceTest {
             downloadedIds.add(assignmentId);
             return new DownloadedFile("Assignment1.txt", "assignment contents".getBytes());
         }
+
+        @Override
+        public AssignmentSummaryResponse publishAssignment(String title, java.nio.file.Path file) {
+            throw new UnsupportedOperationException();
+        }
     }
 }
