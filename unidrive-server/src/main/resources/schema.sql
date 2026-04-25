@@ -1,0 +1,31 @@
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    role TEXT
+);
+
+CREATE TABLE IF NOT EXISTS assignments (
+    id TEXT PRIMARY KEY,
+    title TEXT,
+    published_at INTEGER,
+    file_path TEXT,
+    hash TEXT
+);
+
+CREATE TABLE IF NOT EXISTS submissions (
+    id TEXT PRIMARY KEY,
+    assignment_id TEXT,
+    student_id TEXT,
+    file_path TEXT,
+    hash TEXT,
+    submitted_at INTEGER,
+    status TEXT
+);
+
+CREATE TABLE IF NOT EXISTS feedback (
+    id TEXT PRIMARY KEY,
+    submission_id TEXT,
+    file_path TEXT,
+    hash TEXT,
+    returned_at INTEGER
+);

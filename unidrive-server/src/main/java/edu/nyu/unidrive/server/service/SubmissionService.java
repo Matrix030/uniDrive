@@ -1,7 +1,9 @@
 package edu.nyu.unidrive.server.service;
 
 import edu.nyu.unidrive.common.dto.SubmissionUploadResponse;
+import edu.nyu.unidrive.common.model.SyncStatus;
 import edu.nyu.unidrive.common.util.FileHasher;
+import edu.nyu.unidrive.server.repository.SubmissionRepository;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,9 +16,14 @@ import org.springframework.web.multipart.MultipartFile;
 public class SubmissionService {
 
     private final Path storageRoot;
+    private final SubmissionRepository submissionRepository;
 
-    public SubmissionService(@Value("${unidrive.storage.root:unidrive-server/target/storage}") String storageRoot) {
+    public SubmissionService(
+        @Value("${unidrive.storage.root:unidrive-server/target/storage}") String storageRoot,
+        SubmissionRepository submissionRepository
+    ) {
         this.storageRoot = Path.of(storageRoot);
+        this.submissionRepository = submissionRepository;
     }
 
     public SubmissionUploadResponse storeSubmission(
@@ -42,6 +49,15 @@ public class SubmissionService {
 
         Files.createDirectories(destination.getParent());
         Files.write(destination, content);
+        submissionRepository.save(
+            submissionId,
+            assignmentId,
+            studentId,
+            destination.toString(),
+            computedSha256,
+            System.currentTimeMillis(),
+            SyncStatus.SYNCED.name()
+        );
 
         return new SubmissionUploadResponse(
             submissionId,

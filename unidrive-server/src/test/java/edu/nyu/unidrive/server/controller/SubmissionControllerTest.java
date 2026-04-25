@@ -9,6 +9,7 @@ import edu.nyu.unidrive.common.util.FileHasher;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,13 +18,17 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.FileSystemUtils;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@TestPropertySource(properties = "unidrive.storage.root=target/test-storage")
+@TestPropertySource(properties = {
+    "unidrive.storage.root=target/test-storage",
+    "spring.datasource.url=jdbc:sqlite:target/test-submissions.db"
+})
 class SubmissionControllerTest {
 
     private static final Path STORAGE_ROOT = Path.of("target/test-storage");
@@ -31,16 +36,21 @@ class SubmissionControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @BeforeEach
     void clearStorageRoot() throws IOException {
         FileSystemUtils.deleteRecursively(STORAGE_ROOT);
         Files.createDirectories(STORAGE_ROOT);
+        jdbcTemplate.execute("DELETE FROM submissions");
     }
 
     @Test
     void uploadSubmissionStoresFileAndReturnsReceiptWhenHashMatches() throws Exception {
         byte[] content = "public class Hello { }".getBytes();
         String sha256 = FileHasher.sha256Hex(content);
+        int submissionCountBefore = submissionCount();
         MockMultipartFile file = new MockMultipartFile(
             "file",
             "Hello.java",
@@ -67,11 +77,23 @@ class SubmissionControllerTest {
             long fileCount = storedFiles.filter(Files::isRegularFile).count();
             org.junit.jupiter.api.Assertions.assertEquals(1, fileCount);
         }
+
+        org.junit.jupiter.api.Assertions.assertEquals(submissionCountBefore + 1, submissionCount());
+
+        Map<String, Object> savedSubmission = jdbcTemplate.queryForMap(
+            "SELECT assignment_id, student_id, hash, status FROM submissions WHERE hash = ?",
+            sha256
+        );
+        org.junit.jupiter.api.Assertions.assertEquals("assignment-1", savedSubmission.get("assignment_id"));
+        org.junit.jupiter.api.Assertions.assertEquals("rvg9395", savedSubmission.get("student_id"));
+        org.junit.jupiter.api.Assertions.assertEquals(sha256, savedSubmission.get("hash"));
+        org.junit.jupiter.api.Assertions.assertEquals("SYNCED", savedSubmission.get("status"));
     }
 
     @Test
     void uploadSubmissionRejectsHashMismatchAndDoesNotStoreFile() throws Exception {
         byte[] content = "class BrokenHash { }".getBytes();
+        int submissionCountBefore = submissionCount();
         MockMultipartFile file = new MockMultipartFile(
             "file",
             "BrokenHash.java",
@@ -93,5 +115,12 @@ class SubmissionControllerTest {
             long fileCount = storedFiles.filter(Files::isRegularFile).count();
             org.junit.jupiter.api.Assertions.assertEquals(0, fileCount);
         }
+
+        org.junit.jupiter.api.Assertions.assertEquals(submissionCountBefore, submissionCount());
+    }
+
+    private int submissionCount() {
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM submissions", Integer.class);
+        return count == null ? 0 : count;
     }
 }
