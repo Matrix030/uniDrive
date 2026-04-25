@@ -7,7 +7,7 @@
 - Build command: `./mvnw test`
 - Current test status: passing
 - Current branch: `main`
-- Latest pushed commit: `a47db46` `Add submission retrieval and client workspace setup`
+- Current local head: `7262e34` `Add assignment and feedback client synchronization`
 
 ## Progress Chart
 
@@ -34,9 +34,10 @@
 | Background sync service | Done | Interruptible loop polls watcher, records `PENDING`, schedules uploads |
 | JavaFX app wiring to real services | Done | App bootstraps workspace, starts sync loop, and shuts it down on exit |
 | JavaFX sync status and activity view | Done | UI refreshes local sync state counts and tracked file rows |
-| Assignment download flow | Not started | Future server/client slice |
-| Feedback sync flow | Not started | Future server/client slice |
-| Instructor workflow | Not started | Future server/client slice |
+| Assignment download flow | Done | Server publish/list/download endpoints plus client polling/download service |
+| Feedback sync flow | Done | Server upload/list/download endpoints plus client polling/download service |
+| Instructor workflow | Done | Instructor can publish assignments and return feedback through server APIs |
+| README / run guide | Done | Project setup, run commands, and demo flow documented |
 
 ## Completed Slices
 
@@ -51,6 +52,8 @@
 9. Client-side background sync loop
 10. JavaFX startup wiring to real client services
 11. JavaFX sync status/activity display
+12. Assignment and feedback remote synchronization
+13. Final run/demo documentation
 
 ## Latest Verified Behavior
 
@@ -59,9 +62,13 @@
 - Upload a submission with multipart file, `studentId`, and `X-File-Sha256`
 - Reject mismatched hashes with `422`
 - Persist valid submission metadata to SQLite
+- Publish assignments through `/api/v1/instructor/assignments`
+- List and download assignments through `/api/v1/assignments`
 - List submissions by assignment
 - List submissions by assignment plus student
 - Download a stored submission by ID
+- Upload feedback through `/api/v1/instructor/feedback/{submissionId}`
+- List feedback by student and download returned feedback files
 - Return `404` for unknown submission download
 
 ### Client
@@ -81,6 +88,8 @@
 - Display the workspace root, student, assignment, and server in the JavaFX window
 - Refresh sync-state counts in the JavaFX UI
 - Display tracked file rows with status, remote ID, hash, and last synced time
+- Poll and download new assignments into `/Assignments`
+- Poll and download feedback into `/Feedback`
 
 ## Important Uncommitted Work
 
@@ -89,17 +98,9 @@ As of this file creation, the worktree contains uncommitted changes.
 ### Intended project changes
 
 - `PROJECT_PROGRESS.md`
-- `unidrive-client/src/main/java/edu/nyu/unidrive/client/`
-- `unidrive-client/src/main/java/edu/nyu/unidrive/client/net/`
-- `unidrive-client/src/main/java/edu/nyu/unidrive/client/sync/`
-- `unidrive-client/src/main/java/edu/nyu/unidrive/client/storage/`
-- `unidrive-client/src/test/java/edu/nyu/unidrive/client/`
-- `unidrive-client/src/test/java/edu/nyu/unidrive/client/net/`
-- `unidrive-client/src/test/java/edu/nyu/unidrive/client/sync/`
-- `unidrive-client/src/test/java/edu/nyu/unidrive/client/storage/`
-- `unidrive-client/pom.xml`
+- `README.md`
 
-These contain the current client upload, watcher, background sync, runtime startup wiring, status dashboard, and local transition work that already passes `./mvnw test` locally.
+These documentation updates summarize the now-working full project flow.
 
 ### Unrelated or decision-needed files
 
@@ -111,25 +112,23 @@ Do not commit those unless intentionally desired.
 
 ## Recommended Next Step
 
-Start the assignment download flow.
+The core project implementation is complete. The remaining work is optional polish.
 
 ### Goal
 
-Let the student client receive assignments into `/Assignments` so the two-way course workflow can begin.
+If you continue, focus on polish rather than missing architecture.
 
 ### Suggested order
 
-1. Add failing server tests for listing/downloading assignments
-2. Implement minimal assignment persistence and endpoints on the server
-3. Add a client assignment API client and polling/downloading service
-4. Save assignment files into `/Assignments`
-5. Surface new assignments in the JavaFX UI
+1. improve JavaFX layout and activity messaging
+2. add stronger end-to-end demo tests if desired
+3. add optional configuration UI instead of startup system properties
+4. add packaging/demo script polish
 
 ### Minimal classes likely needed next
 
-- `unidrive-server/.../AssignmentController`
-- `unidrive-client/.../net/AssignmentApiClient`
-- `unidrive-client/.../sync/AssignmentSyncService`
+- optional JavaFX view models or settings UI
+- optional demo helpers or packaging scripts
 
 ## Handoff Notes For Other Agents
 
@@ -137,4 +136,4 @@ Let the student client receive assignments into `/Assignments` so the two-way co
 - Keep changes course-appropriate and plain Java where possible
 - Continue using Red -> Green -> Refactor
 - Verify with `./mvnw test` after each slice
-- The current best pickup point is assignment download flow, starting server-side test-first
+- The current best pickup point is polish, not missing core workflow
