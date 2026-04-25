@@ -34,3 +34,6 @@ Publish/
 # Runtime demo data
 demo-data/
 demo-workspace/
+
+# Local tool state
+.opencode/
