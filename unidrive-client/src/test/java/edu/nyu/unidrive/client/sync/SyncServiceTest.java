@@ -117,6 +117,16 @@ class SyncServiceTest {
         public SubmissionUploadResponse uploadSubmission(String assignmentId, String studentId, Path filePath, String sha256) {
             return new SubmissionUploadResponse("submission-1", assignmentId, studentId, filePath.getFileName().toString(), sha256);
         }
+
+        @Override
+        public java.util.List<edu.nyu.unidrive.common.dto.SubmissionSummaryResponse> listSubmissions(String assignmentId) {
+            return java.util.List.of();
+        }
+
+        @Override
+        public edu.nyu.unidrive.client.net.DownloadedFile downloadSubmission(String submissionId) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static final class FailingApiClient implements SubmissionApiClient {
@@ -124,6 +134,16 @@ class SyncServiceTest {
         public SubmissionUploadResponse uploadSubmission(String assignmentId, String studentId, Path filePath, String sha256)
             throws IOException {
             throw new IOException("server unavailable");
+        }
+
+        @Override
+        public java.util.List<edu.nyu.unidrive.common.dto.SubmissionSummaryResponse> listSubmissions(String assignmentId) {
+            return java.util.List.of();
+        }
+
+        @Override
+        public edu.nyu.unidrive.client.net.DownloadedFile downloadSubmission(String submissionId) {
+            throw new UnsupportedOperationException();
         }
     }
 }

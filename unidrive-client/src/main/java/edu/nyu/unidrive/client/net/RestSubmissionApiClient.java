@@ -2,10 +2,13 @@ package edu.nyu.unidrive.client.net;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.nyu.unidrive.common.dto.SubmissionSummaryResponse;
 import edu.nyu.unidrive.common.dto.SubmissionUploadResponse;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -52,6 +55,48 @@ public final class RestSubmissionApiClient implements SubmissionApiClient {
             dataNode.path("fileName").asText(),
             dataNode.path("sha256").asText()
         );
+    }
+
+    @Override
+    public List<SubmissionSummaryResponse> listSubmissions(String assignmentId) throws IOException {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+            baseUrl + "/api/v1/submissions?assignmentId=" + assignmentId,
+            String.class
+        );
+        JsonNode dataNode = objectMapper.readTree(response.getBody()).path("data");
+        List<SubmissionSummaryResponse> submissions = new ArrayList<>();
+        for (JsonNode node : dataNode) {
+            submissions.add(new SubmissionSummaryResponse(
+                node.path("submissionId").asText(),
+                node.path("assignmentId").asText(),
+                node.path("studentId").asText(),
+                node.path("fileName").asText(),
+                node.path("sha256").asText(),
+                node.path("status").asText()
+            ));
+        }
+        return submissions;
+    }
+
+    @Override
+    public DownloadedFile downloadSubmission(String submissionId) {
+        ResponseEntity<byte[]> response = restTemplate.getForEntity(
+            baseUrl + "/api/v1/submissions/" + submissionId + "/download",
+            byte[].class
+        );
+        return new DownloadedFile(extractFileName(response), response.getBody() == null ? new byte[0] : response.getBody());
+    }
+
+    private String extractFileName(ResponseEntity<?> response) {
+        String contentDisposition = response.getHeaders().getFirst("Content-Disposition");
+        if (contentDisposition == null) {
+            return "download.bin";
+        }
+        int start = contentDisposition.indexOf("filename=\"");
+        if (start < 0) {
+            return "download.bin";
+        }
+        return contentDisposition.substring(start + 10, contentDisposition.length() - 1);
     }
 
     private static final class NamedByteArrayResource extends ByteArrayResource {

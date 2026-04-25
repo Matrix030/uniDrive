@@ -42,5 +42,10 @@ class FeedbackSyncServiceTest {
             downloadedIds.add(feedbackId);
             return new DownloadedFile("Feedback.txt", "feedback contents".getBytes());
         }
+
+        @Override
+        public FeedbackSummaryResponse uploadFeedback(String submissionId, java.nio.file.Path file) {
+            throw new UnsupportedOperationException();
+        }
     }
 }
