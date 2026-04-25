@@ -150,6 +150,19 @@ java -jar unidrive-client/target/unidrive-client.jar --role=student --user=rvg93
 
 ---
 
+## TDD Rule
+
+This project follows Test Driven Development.
+
+- Write a failing test before implementing new behavior.
+- Follow Red -> Green -> Refactor for each feature or bug fix.
+- Prefer small, incremental tests over large unstructured changes.
+- Do not add production code without a test that justifies it, unless the change is purely wiring or unavoidable setup.
+- For bug fixes, first add a test that reproduces the bug, then fix it.
+- Keep tests course-appropriate: readable, focused, and easy to explain in class/demo.
+
+---
+
 ## Conventions
 
 - Package root: `edu.nyu.unidrive`

@@ -1,0 +1,36 @@
+# Maven
+.mvn/wrapper/maven-wrapper.jar
+**/target/
+
+# Java build output
+*.class
+
+# Local databases and logs
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.log
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local sync/demo folders
+Assignments/
+Submissions/
+Feedback/
+Publish/
+
+# Runtime demo data
+demo-data/
+demo-workspace/
