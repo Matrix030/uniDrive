@@ -9,6 +9,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public final class SyncStateRepository {
@@ -68,6 +70,28 @@ public final class SyncStateRepository {
             }
         } catch (SQLException exception) {
             throw new IllegalStateException("Failed to load sync state.", exception);
+        }
+    }
+
+    public List<SyncStateRecord> findAll() {
+        String sql = "SELECT local_path, remote_id, sha256, status, last_synced FROM sync_state ORDER BY local_path ASC";
+
+        try (Connection connection = openConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+            List<SyncStateRecord> records = new ArrayList<>();
+            while (resultSet.next()) {
+                records.add(new SyncStateRecord(
+                    Path.of(resultSet.getString("local_path")),
+                    resultSet.getString("remote_id"),
+                    resultSet.getString("sha256"),
+                    SyncStatus.valueOf(resultSet.getString("status")),
+                    resultSet.getLong("last_synced")
+                ));
+            }
+            return records;
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Failed to load all sync state rows.", exception);
         }
     }
 

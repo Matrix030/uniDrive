@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.nyu.unidrive.common.model.SyncStatus;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -57,5 +58,21 @@ class SyncStateRepositoryTest {
         assertEquals("def456", actual.get().sha256());
         assertEquals(SyncStatus.SYNCED, actual.get().status());
         assertEquals(200L, actual.get().lastSynced());
+    }
+
+    @Test
+    void findAllReturnsTrackedRowsSortedByLocalPath(@TempDir Path tempDir) {
+        SyncStateRepository repository = new SyncStateRepository(tempDir.resolve("sync-state.db"));
+        Path alpha = tempDir.resolve("Submissions/Alpha.java");
+        Path beta = tempDir.resolve("Submissions/Beta.java");
+
+        repository.save(new SyncStateRecord(beta, "submission-2", "hash-b", SyncStatus.FAILED, 200L));
+        repository.save(new SyncStateRecord(alpha, "submission-1", "hash-a", SyncStatus.SYNCED, 100L));
+
+        List<SyncStateRecord> records = repository.findAll();
+
+        assertEquals(2, records.size());
+        assertEquals(alpha, records.getFirst().localPath());
+        assertEquals(beta, records.get(1).localPath());
     }
 }
