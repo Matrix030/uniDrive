@@ -4,6 +4,7 @@ import edu.nyu.unidrive.client.net.RestAssignmentApiClient;
 import edu.nyu.unidrive.client.net.RestFeedbackApiClient;
 import edu.nyu.unidrive.client.net.RestSubmissionApiClient;
 import edu.nyu.unidrive.client.storage.InstructorWorkspace;
+import edu.nyu.unidrive.client.storage.SyncStateRepository;
 import edu.nyu.unidrive.client.sync.InstructorFeedbackWatcher;
 import edu.nyu.unidrive.client.sync.InstructorSubmissionPollingService;
 import edu.nyu.unidrive.client.sync.PublishDirectoryWatcher;
@@ -22,8 +23,9 @@ public final class InstructorSyncServiceFactory {
             PublishUploadService publishUploadService = new PublishUploadService(
                 new RestAssignmentApiClient(baseUrl, restTemplate)
             );
+            SyncStateRepository syncStateRepository = new SyncStateRepository(workspace.databasePath());
             PublishSyncService publishSyncService = new PublishSyncService(
-                publishWatcher, publishUploadService, Duration.ofMillis(250)
+                publishWatcher, publishUploadService, syncStateRepository, Duration.ofMillis(250)
             );
 
             InstructorSubmissionPollingService submissionPolling = new InstructorSubmissionPollingService(

@@ -45,7 +45,10 @@ public final class SceneNavigator {
 
     public void showDashboardScene(SessionConfig config) {
         shutdownDashboard();
-        activeDashboard = new DashboardScene(config);
+        activeDashboard = new DashboardScene(config, () -> {
+            persistence.clear();
+            showLoginScene();
+        });
         stage.setTitle("University Drive — " + config.role().name() + " (" + config.userId() + ")");
         stage.setScene(activeDashboard.build());
         stage.show();

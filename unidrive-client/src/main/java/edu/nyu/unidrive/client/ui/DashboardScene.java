@@ -26,6 +26,7 @@ import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -39,6 +40,7 @@ public final class DashboardScene {
         .withZone(ZoneId.systemDefault());
 
     private final SessionConfig session;
+    private final Runnable onLogout;
     private ClientRuntime studentRuntime;
     private SyncServiceHandle instructorSyncHandle;
     private InstructorWorkspace instructorWorkspace;
@@ -55,8 +57,9 @@ public final class DashboardScene {
     private Label refreshLabel;
     private TableView<SyncStateRecord> syncStateTable;
 
-    public DashboardScene(SessionConfig session) {
+    public DashboardScene(SessionConfig session, Runnable onLogout) {
         this.session = session;
+        this.onLogout = onLogout;
     }
 
     public Scene build() {
@@ -72,6 +75,9 @@ public final class DashboardScene {
         refreshLabel = new Label("Status refresh pending...");
         syncStateTable = createSyncStateTable();
 
+        Button switchUserButton = new Button("Switch User");
+        switchUserButton.setOnAction(event -> onLogout.run());
+
         HBox statusSummary = new HBox(16, pendingLabel, uploadingLabel, syncedLabel, failedLabel);
 
         VBox content = new VBox(
@@ -85,7 +91,8 @@ public final class DashboardScene {
             new Label("Background sync: active"),
             statusSummary,
             refreshLabel,
-            syncStateTable
+            syncStateTable,
+            switchUserButton
         );
         VBox.setVgrow(syncStateTable, Priority.ALWAYS);
         Scene scene = new Scene(content, 960, 520);
