@@ -32,35 +32,61 @@ University Drive is a folder-based assignment sync system for an Intro to Java c
 2. Review synced submissions through the submissions API.
 3. Return feedback through the server API.
 
-## Build
+## Quick Start
+
+Requires Java 21+. Two terminals.
+
+**Terminal 1 — server (port 8080):**
 
 ```bash
-./mvnw test
+./mvnw -pl unidrive-server spring-boot:run
 ```
 
-## Run Server
+Wait until you see `Started UniDriveServerApplication`.
+
+**Terminal 2 — client:**
 
 ```bash
-java -jar unidrive-server/target/unidrive-server.jar
+cd unidrive-client && ../mvnw javafx:run
 ```
 
-If you have not packaged the jars yet, you can build first with:
+> The client must be launched from inside `unidrive-client/` (or the `javafx:run` plugin won't bind correctly).
+
+To override the server URL: `../mvnw javafx:run -Djavafx.args="..."` or edit the default in `UniDriveClientApplication`.
+
+### First launch flow
+
+1. **Login screen** — enter any user ID (e.g. `rvg9395`), pick **Student** or **Instructor**, click Login. The server auto-creates the user if it doesn't exist.
+2. **Folder picker** — click Browse and pick an empty folder for your workspace, set the assignment ID (default `assignment-1`), click Continue.
+3. **Dashboard** — the client creates the role-specific subfolders and starts the background sync.
+
+### Folders created per role
+
+| Role | Folders |
+|---|---|
+| Student | `Assignments/` (read), `Submissions/` (drop), `Feedback/` (read) |
+| Instructor | `Publish/` (drop), `Submissions/<studentId>/` (synced), `Feedback/<studentId>/` (drop) |
+
+### Subsequent launches
+
+Session is restored from `~/.unidrive/config.properties` — login + folder picker are skipped. Delete that file to start over.
+
+### End-to-end demo
+
+1. Start the server.
+2. Start two clients in different workspaces — one Instructor, one Student (different user IDs).
+3. **Instructor** drops `Assignment1.txt` into `Publish/`. The server publishes it.
+4. **Student**: file appears in `Assignments/` within ~2 s.
+5. **Student** drops `Solution.java` into `Submissions/`. Dashboard shows `PENDING` → `UPLOADING` → `SYNCED`.
+6. **Instructor**: the submission appears under `Submissions/<studentId>/`.
+7. **Instructor** drops a feedback file into `Feedback/<studentId>/`.
+8. **Student**: feedback appears in `Feedback/`.
+
+## Build & Test
 
 ```bash
-./mvnw package
-```
-
-## Run Client
-
-The client currently uses system properties for a simple course-project startup path:
-
-```bash
-java \
-  -Dunidrive.root=demo-workspace/student-rvg9395 \
-  -Dunidrive.studentId=rvg9395 \
-  -Dunidrive.assignmentId=assignment-1 \
-  -Dunidrive.serverBaseUrl=http://localhost:8080 \
-  -jar unidrive-client/target/unidrive-client.jar
+./mvnw test           # run all 68 tests
+./mvnw clean package  # build all module jars
 ```
 
 ## Key API Endpoints
