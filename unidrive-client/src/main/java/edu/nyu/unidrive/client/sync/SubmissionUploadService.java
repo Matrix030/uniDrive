@@ -24,6 +24,22 @@ public final class SubmissionUploadService {
 
         try {
             String sha256 = FileHasher.sha256Hex(localPath);
+
+            if (existingRecord != null
+                && existingRecord.remoteId() != null
+                && existingRecord.sha256() != null
+                && existingRecord.sha256().equals(sha256)
+                && existingRecord.lastSynced() > 0L) {
+                syncStateRepository.save(new SyncStateRecord(
+                    localPath,
+                    existingRecord.remoteId(),
+                    sha256,
+                    SyncStatus.SYNCED,
+                    existingRecord.lastSynced()
+                ));
+                return SyncStatus.SYNCED;
+            }
+
             syncStateRepository.save(new SyncStateRecord(
                 localPath,
                 existingRecord == null ? null : existingRecord.remoteId(),

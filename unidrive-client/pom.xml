@@ -12,6 +12,14 @@
     <artifactId>unidrive-client</artifactId>
     <name>University Drive Client</name>
 
+    <properties>
+        <unidrive.userHome>${user.home}</unidrive.userHome>
+        <unidrive.serverBaseUrl>http://localhost:8080</unidrive.serverBaseUrl>
+        <unidrive.studentId>rvg9395</unidrive.studentId>
+        <unidrive.assignmentId>assignment-1</unidrive.assignmentId>
+        <unidrive.root>demo-workspace/student-${unidrive.studentId}</unidrive.root>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>edu.nyu</groupId>
@@ -61,6 +69,13 @@
                 <version>0.0.8</version>
                 <configuration>
                     <mainClass>edu.nyu.unidrive.client.UniDriveClientApplication</mainClass>
+                    <options>
+                        <option>-Duser.home=${unidrive.userHome}</option>
+                        <option>-Dunidrive.serverBaseUrl=${unidrive.serverBaseUrl}</option>
+                        <option>-Dunidrive.studentId=${unidrive.studentId}</option>
+                        <option>-Dunidrive.assignmentId=${unidrive.assignmentId}</option>
+                        <option>-Dunidrive.root=${unidrive.root}</option>
+                    </options>
                 </configuration>
             </plugin>
         </plugins>

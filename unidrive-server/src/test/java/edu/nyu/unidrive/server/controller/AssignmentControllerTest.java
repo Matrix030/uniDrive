@@ -31,7 +31,11 @@ import org.springframework.util.FileSystemUtils;
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {
     "unidrive.storage.root=target/test-assignment-storage",
-    "spring.datasource.url=jdbc:sqlite:target/test-assignments.db"
+    "spring.datasource.url=jdbc:sqlite:target/test-assignments.db",
+    "spring.servlet.multipart.max-file-size=256MB",
+    "spring.servlet.multipart.max-request-size=256MB",
+    "server.tomcat.max-swallow-size=256MB",
+    "server.tomcat.max-http-form-post-size=256MB"
 })
 class AssignmentControllerTest {
 
@@ -79,6 +83,26 @@ class AssignmentControllerTest {
         try (Stream<Path> storedFiles = Files.walk(STORAGE_ROOT)) {
             org.junit.jupiter.api.Assertions.assertEquals(1, storedFiles.filter(Files::isRegularFile).count());
         }
+    }
+
+    @Test
+    void publishAssignmentAcceptsLargeMultipartUploads() throws Exception {
+        byte[] content = new byte[3 * 1024 * 1024];
+        for (int i = 0; i < content.length; i++) {
+            content[i] = (byte) (i % 251);
+        }
+        String sha256 = FileHasher.sha256Hex(content);
+        MockMultipartFile file = new MockMultipartFile("file", "BigAssignment.txt", MediaType.APPLICATION_OCTET_STREAM_VALUE, content);
+
+        mockMvc.perform(
+                multipart("/api/v1/instructor/assignments")
+                    .file(file)
+                    .param("title", "Big Assignment")
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("ok"))
+            .andExpect(jsonPath("$.data.fileName").value("BigAssignment.txt"))
+            .andExpect(jsonPath("$.data.sha256").value(sha256));
     }
 
     @Test

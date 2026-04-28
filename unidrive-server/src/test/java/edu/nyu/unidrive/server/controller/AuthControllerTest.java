@@ -48,6 +48,22 @@ class AuthControllerTest {
     }
 
     @Test
+    void loginUpdatesRoleForExistingUser() throws Exception {
+        jdbcTemplate.update("INSERT INTO users (id, name, role) VALUES (?, ?, ?)",
+            "ins1", "ins1", "STUDENT");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"userId\":\"ins1\",\"role\":\"INSTRUCTOR\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.role").value("INSTRUCTOR"));
+
+        String role = jdbcTemplate.queryForObject(
+            "SELECT role FROM users WHERE id = ?", String.class, "ins1");
+        org.junit.jupiter.api.Assertions.assertEquals("INSTRUCTOR", role);
+    }
+
+    @Test
     void loginAutoCreatesUserWhenAbsent() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)

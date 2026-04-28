@@ -29,11 +29,15 @@ class SyncServiceTest {
         OneShotEventSource eventSource = new OneShotEventSource(new SubmissionFileEvent(file, SubmissionFileEventType.CREATED));
         SubmissionSyncStateService syncStateService = new SubmissionSyncStateService(repository);
         SubmissionUploadService uploadService = new SubmissionUploadService(repository, new SuccessfulApiClient());
+        SubmissionReconcileService reconcileService = new SubmissionReconcileService(repository);
 
         try (SyncService syncService = new SyncService(
             eventSource,
             syncStateService,
             uploadService,
+            reconcileService,
+            repository,
+            file.getParent(),
             "assignment-1",
             "rvg9395",
             Duration.ofMillis(25)
@@ -58,11 +62,15 @@ class SyncServiceTest {
         OneShotEventSource eventSource = new OneShotEventSource(new SubmissionFileEvent(file, SubmissionFileEventType.CREATED));
         SubmissionSyncStateService syncStateService = new SubmissionSyncStateService(repository);
         SubmissionUploadService uploadService = new SubmissionUploadService(repository, new FailingApiClient());
+        SubmissionReconcileService reconcileService = new SubmissionReconcileService(repository);
 
         try (SyncService syncService = new SyncService(
             eventSource,
             syncStateService,
             uploadService,
+            reconcileService,
+            repository,
+            file.getParent(),
             "assignment-1",
             "rvg9395",
             Duration.ofMillis(25)

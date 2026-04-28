@@ -4,6 +4,8 @@ import edu.nyu.unidrive.client.net.RestAssignmentApiClient;
 import edu.nyu.unidrive.client.net.RestFeedbackApiClient;
 import edu.nyu.unidrive.client.net.RestSubmissionApiClient;
 import edu.nyu.unidrive.client.storage.InstructorWorkspace;
+import edu.nyu.unidrive.client.storage.ReceivedStateRepository;
+import edu.nyu.unidrive.client.storage.SyncStateRepository;
 import edu.nyu.unidrive.client.sync.InstructorFeedbackWatcher;
 import edu.nyu.unidrive.client.sync.InstructorSubmissionPollingService;
 import edu.nyu.unidrive.client.sync.PublishDirectoryWatcher;
@@ -22,13 +24,17 @@ public final class InstructorSyncServiceFactory {
             PublishUploadService publishUploadService = new PublishUploadService(
                 new RestAssignmentApiClient(baseUrl, restTemplate)
             );
+            SyncStateRepository syncStateRepository = new SyncStateRepository(workspace.databasePath());
+            ReceivedStateRepository receivedStateRepository = new ReceivedStateRepository(workspace.databasePath());
             PublishSyncService publishSyncService = new PublishSyncService(
-                publishWatcher, publishUploadService, Duration.ofMillis(250)
+                publishWatcher, publishUploadService, syncStateRepository, Duration.ofMillis(250)
             );
 
             InstructorSubmissionPollingService submissionPolling = new InstructorSubmissionPollingService(
                 new RestSubmissionApiClient(baseUrl, restTemplate),
                 workspace.submissionsDirectory(),
+                workspace.feedbackDirectory(),
+                receivedStateRepository,
                 assignmentId,
                 Duration.ofSeconds(2)
             );
@@ -36,6 +42,7 @@ public final class InstructorSyncServiceFactory {
             InstructorFeedbackWatcher feedbackWatcher = new InstructorFeedbackWatcher(
                 new RestFeedbackApiClient(baseUrl, restTemplate),
                 workspace.feedbackDirectory(),
+                receivedStateRepository,
                 submissionPolling.latestSubmissionByStudent(),
                 Duration.ofSeconds(2)
             );

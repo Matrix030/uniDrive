@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.nyu.unidrive.client.net.AssignmentApiClient;
 import edu.nyu.unidrive.client.net.DownloadedFile;
+import edu.nyu.unidrive.client.storage.ReceivedStateRecord;
+import edu.nyu.unidrive.client.storage.ReceivedStateRepository;
+import edu.nyu.unidrive.common.model.SyncStatus;
 import edu.nyu.unidrive.common.dto.AssignmentSummaryResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,14 +22,22 @@ class AssignmentSyncServiceTest {
         Path assignmentsDirectory = tempDir.resolve("Assignments");
         Files.createDirectories(assignmentsDirectory);
         RecordingAssignmentApiClient apiClient = new RecordingAssignmentApiClient();
-        AssignmentSyncService service = new AssignmentSyncService(apiClient);
+        ReceivedStateRepository repository = new ReceivedStateRepository(tempDir.resolve("received.db"));
+        AssignmentSyncService service = new AssignmentSyncService(apiClient, repository);
 
         int downloaded = service.syncAssignments(assignmentsDirectory);
 
         assertEquals(1, downloaded);
-        assertTrue(Files.exists(assignmentsDirectory.resolve("Assignment1.txt")));
-        assertEquals("assignment contents", Files.readString(assignmentsDirectory.resolve("Assignment1.txt")));
+        Path file = assignmentsDirectory.resolve("Assignment1.txt");
+        assertTrue(Files.exists(file));
+        assertEquals("assignment contents", Files.readString(file));
         assertEquals(List.of("assignment-1"), apiClient.downloadedIds);
+        ReceivedStateRecord row = repository.findByLocalPath(file).orElseThrow();
+        assertEquals("assignment-1", row.remoteId());
+        assertEquals("hash-1", row.sha256());
+        assertEquals(SyncStatus.SYNCED, row.status());
+        assertEquals(ReceivedReconcileService.SOURCE_ASSIGNMENTS, row.source());
+        assertTrue(row.lastSynced() > 0L);
     }
 
     private static final class RecordingAssignmentApiClient implements AssignmentApiClient {

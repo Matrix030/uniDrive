@@ -1,7 +1,14 @@
 package edu.nyu.unidrive.client.sync;
 
 import edu.nyu.unidrive.client.SyncServiceHandle;
+import edu.nyu.unidrive.client.storage.SyncStateRecord;
+import edu.nyu.unidrive.client.storage.SyncStateRepository;
+import edu.nyu.unidrive.common.model.SyncStatus;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -11,10 +18,15 @@ public final class SyncService implements SyncServiceHandle {
     private final SubmissionEventSource eventSource;
     private final SubmissionSyncStateService syncStateService;
     private final SubmissionUploadService uploadService;
+    private final SubmissionReconcileService reconcileService;
+    private final SyncStateRepository syncStateRepository;
     private final String assignmentId;
     private final String studentId;
     private final Duration pollTimeout;
     private final ExecutorService uploadExecutor;
+    private final Path submissionsDirectory;
+    private final Map<Path, RetryState> retryStateByPath = new ConcurrentHashMap<>();
+    private final Map<Path, Boolean> inFlight = new ConcurrentHashMap<>();
 
     private Thread workerThread;
 
@@ -22,6 +34,9 @@ public final class SyncService implements SyncServiceHandle {
         SubmissionEventSource eventSource,
         SubmissionSyncStateService syncStateService,
         SubmissionUploadService uploadService,
+        SubmissionReconcileService reconcileService,
+        SyncStateRepository syncStateRepository,
+        Path submissionsDirectory,
         String assignmentId,
         String studentId,
         Duration pollTimeout
@@ -29,6 +44,9 @@ public final class SyncService implements SyncServiceHandle {
         this.eventSource = eventSource;
         this.syncStateService = syncStateService;
         this.uploadService = uploadService;
+        this.reconcileService = reconcileService;
+        this.syncStateRepository = syncStateRepository;
+        this.submissionsDirectory = submissionsDirectory;
         this.assignmentId = assignmentId;
         this.studentId = studentId;
         this.pollTimeout = pollTimeout;
@@ -48,7 +66,17 @@ public final class SyncService implements SyncServiceHandle {
     public void processOnce() {
         for (SubmissionFileEvent event : eventSource.pollEvents(pollTimeout)) {
             syncStateService.recordPendingEvent(event);
-            uploadExecutor.submit(() -> uploadService.uploadPendingSubmission(assignmentId, studentId, event.path()));
+            submitUploadIfAllowed(event.path(), false);
+        }
+
+        for (SyncStateRecord row : syncStateRepository.findAll()) {
+            if (row.status() != SyncStatus.PENDING && row.status() != SyncStatus.FAILED) {
+                continue;
+            }
+            if (!Files.isRegularFile(row.localPath())) {
+                continue;
+            }
+            submitUploadIfAllowed(row.localPath(), row.status() == SyncStatus.FAILED);
         }
     }
 
@@ -82,8 +110,52 @@ public final class SyncService implements SyncServiceHandle {
     }
 
     private void runLoop() {
+        reconcileService.reconcileExistingSubmissions(submissionsDirectory);
+
         while (!Thread.currentThread().isInterrupted()) {
             processOnce();
+        }
+    }
+
+    private void submitUploadIfAllowed(Path path, boolean isRetry) {
+        if (inFlight.putIfAbsent(path, Boolean.TRUE) != null) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        RetryState state = retryStateByPath.computeIfAbsent(path, p -> new RetryState());
+        if (isRetry && now < state.nextAllowedAttemptAtMs) {
+            inFlight.remove(path);
+            return;
+        }
+
+        uploadExecutor.submit(() -> {
+            try {
+                SyncStatus result = uploadService.uploadPendingSubmission(assignmentId, studentId, path);
+                if (result == SyncStatus.SYNCED) {
+                    state.reset();
+                } else if (result == SyncStatus.FAILED) {
+                    state.onFailure();
+                }
+            } finally {
+                inFlight.remove(path);
+            }
+        });
+    }
+
+    private static final class RetryState {
+        private int attempts = 0;
+        private long nextAllowedAttemptAtMs = 0L;
+
+        void reset() {
+            attempts = 0;
+            nextAllowedAttemptAtMs = 0L;
+        }
+
+        void onFailure() {
+            attempts = Math.min(attempts + 1, 10);
+            long backoffMs = Math.min(30_000L, 1_000L * (1L << (attempts - 1)));
+            nextAllowedAttemptAtMs = System.currentTimeMillis() + backoffMs;
         }
     }
 }

@@ -73,6 +73,9 @@ public final class SubmissionDirectoryWatcher implements SubmissionEventSource {
             if (!Files.isRegularFile(absolutePath)) {
                 continue;
             }
+            if (relativePath.getFileName() != null && "desktop.ini".equalsIgnoreCase(relativePath.getFileName().toString())) {
+                continue;
+            }
 
             SubmissionFileEventType newType = mapEventType(event.kind());
             SubmissionFileEventType existingType = eventTypesByPath.get(absolutePath);

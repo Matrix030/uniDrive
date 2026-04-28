@@ -18,7 +18,7 @@ class FolderBootstrapServiceTest {
 
         assertEquals(tempDir.resolve("Assignments"), workspace.assignmentsDirectory());
         assertEquals(tempDir.resolve("Submissions"), workspace.submissionsDirectory());
-        assertEquals(tempDir.resolve("Feedback"), workspace.feedbackDirectory());
+        assertEquals(tempDir.resolve("Feedbacks"), workspace.feedbackDirectory());
         assertEquals(tempDir.resolve("sync-state.db"), workspace.databasePath());
         assertTrue(Files.isDirectory(workspace.assignmentsDirectory()));
         assertTrue(Files.isDirectory(workspace.submissionsDirectory()));
@@ -36,7 +36,7 @@ class FolderBootstrapServiceTest {
         assertEquals(first, second);
         assertTrue(Files.isDirectory(tempDir.resolve("Assignments")));
         assertTrue(Files.isDirectory(tempDir.resolve("Submissions")));
-        assertTrue(Files.isDirectory(tempDir.resolve("Feedback")));
+        assertTrue(Files.isDirectory(tempDir.resolve("Feedbacks")));
         assertTrue(Files.exists(tempDir.resolve("sync-state.db")));
     }
 }

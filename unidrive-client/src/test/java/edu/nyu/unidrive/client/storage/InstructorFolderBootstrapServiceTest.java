@@ -21,7 +21,7 @@ class InstructorFolderBootstrapServiceTest {
         assertTrue(Files.exists(workspace.databasePath()));
         assertEquals(tempDir.resolve("Publish"), workspace.publishDirectory());
         assertEquals(tempDir.resolve("Submissions"), workspace.submissionsDirectory());
-        assertEquals(tempDir.resolve("Feedback"), workspace.feedbackDirectory());
+        assertEquals(tempDir.resolve("Feedbacks"), workspace.feedbackDirectory());
     }
 
     @Test

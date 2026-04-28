@@ -8,7 +8,7 @@ public final class InstructorFolderBootstrapService {
     public InstructorWorkspace bootstrap(Path rootDirectory) {
         Path publishDirectory = rootDirectory.resolve("Publish");
         Path submissionsDirectory = rootDirectory.resolve("Submissions");
-        Path feedbackDirectory = rootDirectory.resolve("Feedback");
+        Path feedbackDirectory = rootDirectory.resolve("Feedbacks");
         Path databasePath = rootDirectory.resolve("sync-state.db");
 
         try {

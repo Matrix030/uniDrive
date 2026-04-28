@@ -18,7 +18,7 @@ public final class SubmissionSyncStateService {
         SyncStateRecord pendingRecord = new SyncStateRecord(
             event.path(),
             existingRecord == null ? null : existingRecord.remoteId(),
-            null,
+            existingRecord == null ? null : existingRecord.sha256(),
             SyncStatus.PENDING,
             existingRecord == null ? 0L : existingRecord.lastSynced()
         );

@@ -1,7 +1,12 @@
 package edu.nyu.unidrive.client.sync;
 
 import edu.nyu.unidrive.client.SyncServiceHandle;
+import edu.nyu.unidrive.client.storage.SyncStateRecord;
+import edu.nyu.unidrive.client.storage.SyncStateRepository;
+import edu.nyu.unidrive.common.model.SyncStatus;
+import edu.nyu.unidrive.common.util.FileHasher;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
@@ -10,13 +15,20 @@ public final class PublishSyncService implements SyncServiceHandle {
 
     private final PublishDirectoryWatcher watcher;
     private final PublishUploadService uploadService;
+    private final SyncStateRepository syncStateRepository;
     private final Duration pollTimeout;
-    private final Set<java.nio.file.Path> publishedFiles = new HashSet<>();
+    private final Set<Path> publishedFiles = new HashSet<>();
     private Thread workerThread;
 
-    public PublishSyncService(PublishDirectoryWatcher watcher, PublishUploadService uploadService, Duration pollTimeout) {
+    public PublishSyncService(
+        PublishDirectoryWatcher watcher,
+        PublishUploadService uploadService,
+        SyncStateRepository syncStateRepository,
+        Duration pollTimeout
+    ) {
         this.watcher = watcher;
         this.uploadService = uploadService;
+        this.syncStateRepository = syncStateRepository;
         this.pollTimeout = pollTimeout;
     }
 
@@ -35,11 +47,38 @@ public final class PublishSyncService implements SyncServiceHandle {
             if (publishedFiles.contains(event.path())) {
                 continue;
             }
+            if (isIgnoredPublishFile(event.path())) {
+                continue;
+            }
+
+            syncStateRepository.findByLocalPath(event.path()).ifPresent(existing -> {
+                if (existing.status() == SyncStatus.SYNCED && existing.sha256() != null) {
+                    try {
+                        String currentHash = FileHasher.sha256Hex(event.path());
+                        if (existing.sha256().equals(currentHash)) {
+                            publishedFiles.add(event.path());
+                        }
+                    } catch (IOException ignored) {
+                    }
+                }
+            });
+            if (publishedFiles.contains(event.path())) {
+                continue;
+            }
+
+            syncStateRepository.save(new SyncStateRecord(event.path(), null, null, SyncStatus.PENDING, 0L));
             try {
-                uploadService.publish(event.path());
+                var response = uploadService.publish(event.path());
+                syncStateRepository.save(new SyncStateRecord(
+                    event.path(),
+                    response.getAssignmentId(),
+                    response.getSha256(),
+                    SyncStatus.SYNCED,
+                    System.currentTimeMillis()
+                ));
                 publishedFiles.add(event.path());
             } catch (IOException ignored) {
-                // retry on next iteration
+                syncStateRepository.save(new SyncStateRecord(event.path(), null, null, SyncStatus.FAILED, 0L));
             }
         }
     }
@@ -68,5 +107,10 @@ public final class PublishSyncService implements SyncServiceHandle {
         while (!Thread.currentThread().isInterrupted()) {
             processOnce();
         }
+    }
+
+    private boolean isIgnoredPublishFile(Path path) {
+        Path name = path.getFileName();
+        return name != null && "desktop.ini".equalsIgnoreCase(name.toString());
     }
 }

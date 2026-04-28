@@ -9,7 +9,7 @@ public final class FolderBootstrapService implements WorkspaceBootstrapService {
     public ClientWorkspace bootstrap(Path rootDirectory) {
         Path assignmentsDirectory = rootDirectory.resolve("Assignments");
         Path submissionsDirectory = rootDirectory.resolve("Submissions");
-        Path feedbackDirectory = rootDirectory.resolve("Feedback");
+        Path feedbackDirectory = rootDirectory.resolve("Feedbacks");
         Path databasePath = rootDirectory.resolve("sync-state.db");
 
         try {

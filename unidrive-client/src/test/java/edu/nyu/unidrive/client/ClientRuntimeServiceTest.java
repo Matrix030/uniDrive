@@ -22,7 +22,7 @@ class ClientRuntimeServiceTest {
         assertEquals(tempDir, runtime.workspace().rootDirectory());
         assertTrue(Files.isDirectory(tempDir.resolve("Assignments")));
         assertTrue(Files.isDirectory(tempDir.resolve("Submissions")));
-        assertTrue(Files.isDirectory(tempDir.resolve("Feedback")));
+        assertTrue(Files.isDirectory(tempDir.resolve("Feedbacks")));
         assertTrue(Files.exists(tempDir.resolve("sync-state.db")));
         assertEquals("assignment-1", factory.assignmentId);
         assertEquals("rvg9395", factory.studentId);

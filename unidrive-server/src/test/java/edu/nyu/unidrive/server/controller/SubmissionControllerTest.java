@@ -54,7 +54,8 @@ class SubmissionControllerTest {
     void uploadSubmissionStoresFileAndReturnsReceiptWhenHashMatches() throws Exception {
         byte[] content = "public class Hello { }".getBytes();
         String sha256 = FileHasher.sha256Hex(content);
-        int submissionCountBefore = submissionCount();
+        Integer submissionCountBefore = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM submissions", Integer.class);
+        int beforeCount = submissionCountBefore == null ? 0 : submissionCountBefore;
         MockMultipartFile file = new MockMultipartFile(
             "file",
             "Hello.java",
@@ -82,7 +83,9 @@ class SubmissionControllerTest {
             org.junit.jupiter.api.Assertions.assertEquals(1, fileCount);
         }
 
-        org.junit.jupiter.api.Assertions.assertEquals(submissionCountBefore + 1, submissionCount());
+        Integer submissionCountAfter = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM submissions", Integer.class);
+        int afterCount = submissionCountAfter == null ? 0 : submissionCountAfter;
+        org.junit.jupiter.api.Assertions.assertEquals(beforeCount + 1, afterCount);
 
         Map<String, Object> savedSubmission = jdbcTemplate.queryForMap(
             "SELECT assignment_id, student_id, hash, status FROM submissions WHERE hash = ?",
@@ -97,7 +100,8 @@ class SubmissionControllerTest {
     @Test
     void uploadSubmissionRejectsHashMismatchAndDoesNotStoreFile() throws Exception {
         byte[] content = "class BrokenHash { }".getBytes();
-        int submissionCountBefore = submissionCount();
+        Integer submissionCountBefore = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM submissions", Integer.class);
+        int beforeCount = submissionCountBefore == null ? 0 : submissionCountBefore;
         MockMultipartFile file = new MockMultipartFile(
             "file",
             "BrokenHash.java",
@@ -120,7 +124,9 @@ class SubmissionControllerTest {
             org.junit.jupiter.api.Assertions.assertEquals(0, fileCount);
         }
 
-        org.junit.jupiter.api.Assertions.assertEquals(submissionCountBefore, submissionCount());
+        Integer submissionCountAfter = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM submissions", Integer.class);
+        int afterCount = submissionCountAfter == null ? 0 : submissionCountAfter;
+        org.junit.jupiter.api.Assertions.assertEquals(beforeCount, afterCount);
     }
 
     @Test
@@ -181,11 +187,6 @@ class SubmissionControllerTest {
     void downloadSubmissionReturns404WhenSubmissionDoesNotExist() throws Exception {
         mockMvc.perform(get("/api/v1/submissions/{submissionId}/download", "missing-submission-id"))
             .andExpect(status().isNotFound());
-    }
-
-    private int submissionCount() {
-        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM submissions", Integer.class);
-        return count == null ? 0 : count;
     }
 
     private void uploadSubmission(String assignmentId, String studentId, String fileName, byte[] content) throws Exception {

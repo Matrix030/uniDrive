@@ -8,6 +8,7 @@ public final class RemotePollingService implements SyncServiceHandle {
 
     private final AssignmentSyncService assignmentSyncService;
     private final FeedbackSyncService feedbackSyncService;
+    private final ReceivedReconcileService receivedReconcileService;
     private final Path assignmentsDirectory;
     private final Path feedbackDirectory;
     private final String studentId;
@@ -17,6 +18,7 @@ public final class RemotePollingService implements SyncServiceHandle {
     public RemotePollingService(
         AssignmentSyncService assignmentSyncService,
         FeedbackSyncService feedbackSyncService,
+        ReceivedReconcileService receivedReconcileService,
         Path assignmentsDirectory,
         Path feedbackDirectory,
         String studentId,
@@ -24,6 +26,7 @@ public final class RemotePollingService implements SyncServiceHandle {
     ) {
         this.assignmentSyncService = assignmentSyncService;
         this.feedbackSyncService = feedbackSyncService;
+        this.receivedReconcileService = receivedReconcileService;
         this.assignmentsDirectory = assignmentsDirectory;
         this.feedbackDirectory = feedbackDirectory;
         this.studentId = studentId;
@@ -60,6 +63,8 @@ public final class RemotePollingService implements SyncServiceHandle {
     }
 
     private void runLoop() {
+        receivedReconcileService.reconcileExistingReceivedFiles(assignmentsDirectory, feedbackDirectory);
+
         while (!Thread.currentThread().isInterrupted()) {
             processOnce();
             try {

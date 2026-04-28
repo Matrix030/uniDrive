@@ -62,4 +62,18 @@ class SubmissionDirectoryWatcherTest {
             assertTrue(events.isEmpty());
         }
     }
+
+    @Test
+    void pollEventsIgnoresDesktopIni(@TempDir Path tempDir) throws Exception {
+        ClientWorkspace workspace = new FolderBootstrapService().bootstrap(tempDir);
+
+        try (SubmissionDirectoryWatcher watcher = new SubmissionDirectoryWatcher(workspace.submissionsDirectory())) {
+            Path desktopIni = workspace.submissionsDirectory().resolve("desktop.ini");
+            Files.writeString(desktopIni, "[.ShellClassInfo]\n");
+
+            List<SubmissionFileEvent> events = watcher.pollEvents(Duration.ofSeconds(2));
+
+            assertTrue(events.isEmpty());
+        }
+    }
 }
