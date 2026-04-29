@@ -28,11 +28,12 @@ public class AuthController {
             return ResponseEntity.badRequest().body(ApiResponse.error("role must be STUDENT or INSTRUCTOR."));
         }
 
-        UserRepository.StoredUser user = userRepository.findById(request.userId())
-            .orElseGet(() -> {
-                userRepository.save(request.userId(), request.userId(), request.role());
-                return new UserRepository.StoredUser(request.userId(), request.userId(), request.role());
-            });
+        if (userRepository.findById(request.userId()).isEmpty()) {
+            userRepository.save(request.userId(), request.userId(), request.role());
+        } else {
+            userRepository.updateRole(request.userId(), request.role());
+        }
+        UserRepository.StoredUser user = userRepository.findById(request.userId()).orElseThrow();
 
         LoginResponse response = new LoginResponse(user.id(), user.name(), user.role());
         return ResponseEntity.ok(ApiResponse.ok(response, "Login successful."));

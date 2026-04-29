@@ -44,7 +44,7 @@ class SubmissionSyncStateServiceTest {
         Optional<SyncStateRecord> record = repository.findByLocalPath(localPath);
         assertTrue(record.isPresent());
         assertEquals("submission-1", record.get().remoteId());
-        assertNull(record.get().sha256());
+        assertEquals("oldhash", record.get().sha256());
         assertEquals(SyncStatus.PENDING, record.get().status());
         assertEquals(1234L, record.get().lastSynced());
     }

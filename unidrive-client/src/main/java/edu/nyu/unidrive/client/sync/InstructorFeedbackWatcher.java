@@ -2,6 +2,9 @@ package edu.nyu.unidrive.client.sync;
 
 import edu.nyu.unidrive.client.SyncServiceHandle;
 import edu.nyu.unidrive.client.net.FeedbackApiClient;
+import edu.nyu.unidrive.client.storage.ReceivedStateRecord;
+import edu.nyu.unidrive.client.storage.ReceivedStateRepository;
+import edu.nyu.unidrive.common.model.SyncStatus;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,6 +18,7 @@ public final class InstructorFeedbackWatcher implements SyncServiceHandle {
 
     private final FeedbackApiClient feedbackApiClient;
     private final Path feedbackDirectory;
+    private final ReceivedStateRepository receivedStateRepository;
     private final Map<String, String> latestSubmissionByStudent;
     private final Duration pollInterval;
     private final Set<Path> uploadedFiles = new HashSet<>();
@@ -23,11 +27,13 @@ public final class InstructorFeedbackWatcher implements SyncServiceHandle {
     public InstructorFeedbackWatcher(
         FeedbackApiClient feedbackApiClient,
         Path feedbackDirectory,
+        ReceivedStateRepository receivedStateRepository,
         Map<String, String> latestSubmissionByStudent,
         Duration pollInterval
     ) {
         this.feedbackApiClient = feedbackApiClient;
         this.feedbackDirectory = feedbackDirectory;
+        this.receivedStateRepository = receivedStateRepository;
         this.latestSubmissionByStudent = latestSubmissionByStudent;
         this.pollInterval = pollInterval;
     }
@@ -83,9 +89,34 @@ public final class InstructorFeedbackWatcher implements SyncServiceHandle {
             return;
         }
         try {
-            feedbackApiClient.uploadFeedback(submissionId, file);
+            receivedStateRepository.save(new ReceivedStateRecord(
+                file,
+                null,
+                null,
+                SyncStatus.PENDING,
+                0L,
+                ReceivedReconcileService.SOURCE_INSTRUCTOR_FEEDBACKS
+            ));
+
+            var response = feedbackApiClient.uploadFeedback(submissionId, file);
             uploadedFiles.add(file);
+            receivedStateRepository.save(new ReceivedStateRecord(
+                file,
+                response.getFeedbackId(),
+                response.getSha256(),
+                SyncStatus.SYNCED,
+                System.currentTimeMillis(),
+                ReceivedReconcileService.SOURCE_INSTRUCTOR_FEEDBACKS
+            ));
         } catch (IOException exception) {
+            receivedStateRepository.save(new ReceivedStateRecord(
+                file,
+                null,
+                null,
+                SyncStatus.FAILED,
+                0L,
+                ReceivedReconcileService.SOURCE_INSTRUCTOR_FEEDBACKS
+            ));
             throw new IllegalStateException("Failed to upload feedback file " + file, exception);
         }
     }
@@ -95,7 +126,6 @@ public final class InstructorFeedbackWatcher implements SyncServiceHandle {
             try {
                 processOnce();
             } catch (RuntimeException ignored) {
-                // continue polling on transient failures
             }
             try {
                 Thread.sleep(pollInterval.toMillis());

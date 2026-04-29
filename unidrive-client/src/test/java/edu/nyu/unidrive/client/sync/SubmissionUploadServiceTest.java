@@ -66,6 +66,30 @@ class SubmissionUploadServiceTest {
         assertEquals(123L, savedRecord.get().lastSynced());
     }
 
+    @Test
+    void uploadPendingSubmissionSkipsUploadWhenContentUnchanged(@TempDir Path tempDir) throws Exception {
+        SyncStateRepository repository = new SyncStateRepository(tempDir.resolve("sync-state.db"));
+        Path file = tempDir.resolve("Submissions/Hello.java");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "class Hello {}\n");
+        String sha = FileHasher.sha256Hex(file);
+        repository.save(new SyncStateRecord(file, "submission-1", sha, SyncStatus.SYNCED, 123L));
+
+        CountingSubmissionApiClient apiClient = new CountingSubmissionApiClient();
+        SubmissionUploadService service = new SubmissionUploadService(repository, apiClient);
+
+        SyncStatus result = service.uploadPendingSubmission("assignment-1", "rvg9395", file);
+
+        Optional<SyncStateRecord> savedRecord = repository.findByLocalPath(file);
+        assertEquals(SyncStatus.SYNCED, result);
+        assertTrue(savedRecord.isPresent());
+        assertEquals("submission-1", savedRecord.get().remoteId());
+        assertEquals(sha, savedRecord.get().sha256());
+        assertEquals(SyncStatus.SYNCED, savedRecord.get().status());
+        assertEquals(123L, savedRecord.get().lastSynced());
+        assertEquals(0, apiClient.uploadCalls);
+    }
+
     private static final class RecordingSubmissionApiClient implements SubmissionApiClient {
         private String assignmentId;
         private String studentId;
@@ -97,6 +121,26 @@ class SubmissionUploadServiceTest {
         public SubmissionUploadResponse uploadSubmission(String assignmentId, String studentId, Path filePath, String sha256)
             throws IOException {
             throw new IOException("server unavailable");
+        }
+
+        @Override
+        public java.util.List<edu.nyu.unidrive.common.dto.SubmissionSummaryResponse> listSubmissions(String assignmentId) {
+            return java.util.List.of();
+        }
+
+        @Override
+        public edu.nyu.unidrive.client.net.DownloadedFile downloadSubmission(String submissionId) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private static final class CountingSubmissionApiClient implements SubmissionApiClient {
+        private int uploadCalls = 0;
+
+        @Override
+        public SubmissionUploadResponse uploadSubmission(String assignmentId, String studentId, Path filePath, String sha256) {
+            uploadCalls++;
+            return new SubmissionUploadResponse("submission-x", assignmentId, studentId, filePath.getFileName().toString(), sha256);
         }
 
         @Override

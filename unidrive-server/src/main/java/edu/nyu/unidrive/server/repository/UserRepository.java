@@ -36,6 +36,10 @@ public class UserRepository {
         );
     }
 
+    public void updateRole(String id, String role) {
+        jdbcTemplate.update("UPDATE users SET role = ? WHERE id = ?", role, id);
+    }
+
     public record StoredUser(String id, String name, String role) {
     }
 }

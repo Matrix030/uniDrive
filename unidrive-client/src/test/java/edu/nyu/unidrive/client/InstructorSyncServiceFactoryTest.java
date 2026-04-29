@@ -18,8 +18,6 @@ class InstructorSyncServiceFactoryTest {
         SyncServiceHandle handle = factory.create(workspace, "assignment-1", "http://localhost:8080");
 
         assertNotNull(handle);
-        // Don't start the handle (would spawn live polling threads against a real port).
-        // Closing without starting must be safe.
         handle.close();
     }
 }

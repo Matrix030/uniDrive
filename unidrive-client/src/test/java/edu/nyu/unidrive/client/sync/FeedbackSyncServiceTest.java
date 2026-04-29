@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.nyu.unidrive.client.net.DownloadedFile;
 import edu.nyu.unidrive.client.net.FeedbackApiClient;
+import edu.nyu.unidrive.client.storage.ReceivedStateRecord;
+import edu.nyu.unidrive.client.storage.ReceivedStateRepository;
+import edu.nyu.unidrive.common.model.SyncStatus;
 import edu.nyu.unidrive.common.dto.FeedbackSummaryResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,14 +22,22 @@ class FeedbackSyncServiceTest {
         Path feedbackDirectory = tempDir.resolve("Feedback");
         Files.createDirectories(feedbackDirectory);
         RecordingFeedbackApiClient apiClient = new RecordingFeedbackApiClient();
-        FeedbackSyncService service = new FeedbackSyncService(apiClient);
+        ReceivedStateRepository repository = new ReceivedStateRepository(tempDir.resolve("received.db"));
+        FeedbackSyncService service = new FeedbackSyncService(apiClient, repository);
 
         int downloaded = service.syncFeedback("rvg9395", feedbackDirectory);
 
         assertEquals(1, downloaded);
-        assertTrue(Files.exists(feedbackDirectory.resolve("Feedback.txt")));
-        assertEquals("feedback contents", Files.readString(feedbackDirectory.resolve("Feedback.txt")));
+        Path file = feedbackDirectory.resolve("Feedback.txt");
+        assertTrue(Files.exists(file));
+        assertEquals("feedback contents", Files.readString(file));
         assertEquals(List.of("feedback-1"), apiClient.downloadedIds);
+        ReceivedStateRecord row = repository.findByLocalPath(file).orElseThrow();
+        assertEquals("feedback-1", row.remoteId());
+        assertEquals("hash-1", row.sha256());
+        assertEquals(SyncStatus.SYNCED, row.status());
+        assertEquals(ReceivedReconcileService.SOURCE_FEEDBACK, row.source());
+        assertTrue(row.lastSynced() > 0L);
     }
 
     private static final class RecordingFeedbackApiClient implements FeedbackApiClient {

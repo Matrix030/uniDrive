@@ -4,6 +4,7 @@ import edu.nyu.unidrive.client.SyncServiceHandle;
 import edu.nyu.unidrive.client.storage.SyncStateRecord;
 import edu.nyu.unidrive.client.storage.SyncStateRepository;
 import edu.nyu.unidrive.common.model.SyncStatus;
+import edu.nyu.unidrive.common.util.FileHasher;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -19,8 +20,12 @@ public final class PublishSyncService implements SyncServiceHandle {
     private final Set<Path> publishedFiles = new HashSet<>();
     private Thread workerThread;
 
-    public PublishSyncService(PublishDirectoryWatcher watcher, PublishUploadService uploadService,
-            SyncStateRepository syncStateRepository, Duration pollTimeout) {
+    public PublishSyncService(
+        PublishDirectoryWatcher watcher,
+        PublishUploadService uploadService,
+        SyncStateRepository syncStateRepository,
+        Duration pollTimeout
+    ) {
         this.watcher = watcher;
         this.uploadService = uploadService;
         this.syncStateRepository = syncStateRepository;
@@ -42,6 +47,25 @@ public final class PublishSyncService implements SyncServiceHandle {
             if (publishedFiles.contains(event.path())) {
                 continue;
             }
+            if (isIgnoredPublishFile(event.path())) {
+                continue;
+            }
+
+            syncStateRepository.findByLocalPath(event.path()).ifPresent(existing -> {
+                if (existing.status() == SyncStatus.SYNCED && existing.sha256() != null) {
+                    try {
+                        String currentHash = FileHasher.sha256Hex(event.path());
+                        if (existing.sha256().equals(currentHash)) {
+                            publishedFiles.add(event.path());
+                        }
+                    } catch (IOException ignored) {
+                    }
+                }
+            });
+            if (publishedFiles.contains(event.path())) {
+                continue;
+            }
+
             syncStateRepository.save(new SyncStateRecord(event.path(), null, null, SyncStatus.PENDING, 0L));
             try {
                 var response = uploadService.publish(event.path());
@@ -83,5 +107,10 @@ public final class PublishSyncService implements SyncServiceHandle {
         while (!Thread.currentThread().isInterrupted()) {
             processOnce();
         }
+    }
+
+    private boolean isIgnoredPublishFile(Path path) {
+        Path name = path.getFileName();
+        return name != null && "desktop.ini".equalsIgnoreCase(name.toString());
     }
 }
