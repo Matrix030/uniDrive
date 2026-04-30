@@ -4,5 +4,5 @@ import edu.nyu.unidrive.client.storage.ClientWorkspace;
 
 public interface SyncServiceFactory {
 
-    SyncServiceHandle create(ClientWorkspace workspace, String assignmentId, String studentId, String baseUrl);
+    SyncServiceHandle create(ClientWorkspace workspace, String studentId, String baseUrl);
 }

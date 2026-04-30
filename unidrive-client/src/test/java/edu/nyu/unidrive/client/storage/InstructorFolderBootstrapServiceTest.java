@@ -11,17 +11,11 @@ import org.junit.jupiter.api.io.TempDir;
 class InstructorFolderBootstrapServiceTest {
 
     @Test
-    void bootstrapCreatesPublishSubmissionsAndFeedbackDirectories(@TempDir Path tempDir) {
+    void bootstrapCreatesRootAndDatabase(@TempDir Path tempDir) {
         InstructorWorkspace workspace = new InstructorFolderBootstrapService().bootstrap(tempDir);
 
         assertEquals(tempDir, workspace.rootDirectory());
-        assertTrue(Files.isDirectory(workspace.publishDirectory()));
-        assertTrue(Files.isDirectory(workspace.submissionsDirectory()));
-        assertTrue(Files.isDirectory(workspace.feedbackDirectory()));
         assertTrue(Files.exists(workspace.databasePath()));
-        assertEquals(tempDir.resolve("Publish"), workspace.publishDirectory());
-        assertEquals(tempDir.resolve("Submissions"), workspace.submissionsDirectory());
-        assertEquals(tempDir.resolve("Feedback"), workspace.feedbackDirectory());
     }
 
     @Test
@@ -30,12 +24,11 @@ class InstructorFolderBootstrapServiceTest {
         service.bootstrap(tempDir);
         InstructorWorkspace workspace = service.bootstrap(tempDir);
 
-        assertTrue(Files.isDirectory(workspace.publishDirectory()));
         assertTrue(Files.exists(workspace.databasePath()));
     }
 
     @Test
-    void bootstrapAlsoSeedsTermAndCourseDirectories(@TempDir Path tempDir) {
+    void bootstrapSeedsTermAndCourseDirectories(@TempDir Path tempDir) {
         new InstructorFolderBootstrapService().bootstrap(tempDir);
 
         Path termRoot = tempDir.resolve("fall2026");

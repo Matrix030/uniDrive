@@ -4,9 +4,13 @@ import edu.nyu.unidrive.client.storage.ReceivedStateRecord;
 import edu.nyu.unidrive.client.storage.ReceivedStateRepository;
 import edu.nyu.unidrive.common.model.SyncStatus;
 import edu.nyu.unidrive.common.util.FileHasher;
+import edu.nyu.unidrive.common.workspace.CoursePath;
+import edu.nyu.unidrive.common.workspace.CoursePath.Leaf;
+import edu.nyu.unidrive.common.workspace.CoursePath.ParsedLocation;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 public final class ReceivedReconcileService {
@@ -22,32 +26,43 @@ public final class ReceivedReconcileService {
         this.receivedStateRepository = receivedStateRepository;
     }
 
-    public void reconcileExistingReceivedFiles(Path assignmentsDirectory, Path feedbackDirectory) {
-        reconcileDirectory(assignmentsDirectory, SOURCE_ASSIGNMENTS);
-        reconcileDirectory(feedbackDirectory, SOURCE_FEEDBACK);
-    }
-
-    private void reconcileDirectory(Path directory, String source) {
-        if (directory == null || !Files.isDirectory(directory)) {
+    public void reconcileWorkspaceRoot(Path workspaceRoot) {
+        if (workspaceRoot == null || !Files.isDirectory(workspaceRoot)) {
             return;
         }
-        try (Stream<Path> paths = Files.list(directory)) {
+        try (Stream<Path> paths = Files.walk(workspaceRoot)) {
             paths.filter(Files::isRegularFile)
                 .filter(path -> !isIgnoredFile(path))
-                .forEach(path -> receivedStateRepository.findByLocalPath(path).ifPresentOrElse(
-                    existing -> {
-                    },
-                    () -> receivedStateRepository.save(new ReceivedStateRecord(
-                        path,
-                        sourcePrefix(source) + path.getFileName(),
-                        safeHash(path),
-                        SyncStatus.SYNCED,
-                        safeLastModified(path),
-                        source
-                    ))
-                ));
+                .forEach(path -> reconcileFile(workspaceRoot, path));
         } catch (IOException ignored) {
         }
+    }
+
+    private void reconcileFile(Path workspaceRoot, Path path) {
+        Optional<ParsedLocation> parsed = CoursePath.parseFromWorkspace(workspaceRoot, path);
+        if (parsed.isEmpty()) {
+            return;
+        }
+        ParsedLocation location = parsed.get();
+        String source;
+        if (location.leaf() == Leaf.PUBLISH) {
+            source = SOURCE_ASSIGNMENTS;
+        } else if (location.leaf() == Leaf.SUBMISSIONS && location.studentId().isPresent()) {
+            source = SOURCE_INSTRUCTOR_SUBMISSIONS;
+        } else {
+            return;
+        }
+        if (receivedStateRepository.findByLocalPath(path).isPresent()) {
+            return;
+        }
+        receivedStateRepository.save(new ReceivedStateRecord(
+            path,
+            sourcePrefix(source) + path.getFileName(),
+            safeHash(path),
+            SyncStatus.SYNCED,
+            safeLastModified(path),
+            source
+        ));
     }
 
     private boolean isIgnoredFile(Path path) {
@@ -56,7 +71,11 @@ public final class ReceivedReconcileService {
     }
 
     private String sourcePrefix(String source) {
-        return SOURCE_ASSIGNMENTS.equals(source) ? "assignment:" : "feedback:";
+        return switch (source) {
+            case SOURCE_ASSIGNMENTS -> "assignment:";
+            case SOURCE_INSTRUCTOR_SUBMISSIONS -> "instructor-submission:";
+            default -> "feedback:";
+        };
     }
 
     private String safeHash(Path path) {
@@ -75,4 +94,3 @@ public final class ReceivedReconcileService {
         }
     }
 }
-

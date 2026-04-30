@@ -27,7 +27,6 @@ class SessionPersistenceTest {
             "rvg9395",
             UserRole.STUDENT,
             workspace,
-            "assignment-1",
             "http://localhost:8080"
         );
 
@@ -38,7 +37,6 @@ class SessionPersistenceTest {
         assertEquals("rvg9395", loaded.get().userId());
         assertEquals(UserRole.STUDENT, loaded.get().role());
         assertEquals(workspace, loaded.get().workspaceDirectory());
-        assertEquals("assignment-1", loaded.get().assignmentId());
         assertEquals("http://localhost:8080", loaded.get().baseUrl());
     }
 

@@ -1,35 +1,31 @@
 package edu.nyu.unidrive.client.sync;
 
 import edu.nyu.unidrive.client.SyncServiceHandle;
+import edu.nyu.unidrive.common.workspace.MockCourseRegistry;
+import edu.nyu.unidrive.common.workspace.MockCourseRegistry.Course;
 import java.nio.file.Path;
 import java.time.Duration;
 
 public final class RemotePollingService implements SyncServiceHandle {
 
     private final AssignmentSyncService assignmentSyncService;
-    private final FeedbackSyncService feedbackSyncService;
     private final ReceivedReconcileService receivedReconcileService;
-    private final Path assignmentsDirectory;
-    private final Path feedbackDirectory;
-    private final String studentId;
+    private final Path workspaceRoot;
+    private final MockCourseRegistry courseRegistry;
     private final Duration pollInterval;
     private Thread workerThread;
 
     public RemotePollingService(
         AssignmentSyncService assignmentSyncService,
-        FeedbackSyncService feedbackSyncService,
         ReceivedReconcileService receivedReconcileService,
-        Path assignmentsDirectory,
-        Path feedbackDirectory,
-        String studentId,
+        Path workspaceRoot,
+        MockCourseRegistry courseRegistry,
         Duration pollInterval
     ) {
         this.assignmentSyncService = assignmentSyncService;
-        this.feedbackSyncService = feedbackSyncService;
         this.receivedReconcileService = receivedReconcileService;
-        this.assignmentsDirectory = assignmentsDirectory;
-        this.feedbackDirectory = feedbackDirectory;
-        this.studentId = studentId;
+        this.workspaceRoot = workspaceRoot;
+        this.courseRegistry = courseRegistry;
         this.pollInterval = pollInterval;
     }
 
@@ -45,8 +41,9 @@ public final class RemotePollingService implements SyncServiceHandle {
     }
 
     public void processOnce() {
-        assignmentSyncService.syncAssignments(assignmentsDirectory);
-        feedbackSyncService.syncFeedback(studentId, feedbackDirectory);
+        for (Course course : courseRegistry.courses()) {
+            assignmentSyncService.syncAssignmentsForCourse(courseRegistry.currentTerm(), course.slug(), workspaceRoot);
+        }
     }
 
     @Override
@@ -63,7 +60,7 @@ public final class RemotePollingService implements SyncServiceHandle {
     }
 
     private void runLoop() {
-        receivedReconcileService.reconcileExistingReceivedFiles(assignmentsDirectory, feedbackDirectory);
+        receivedReconcileService.reconcileWorkspaceRoot(workspaceRoot);
 
         while (!Thread.currentThread().isInterrupted()) {
             processOnce();

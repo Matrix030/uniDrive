@@ -18,29 +18,14 @@ public final class FolderBootstrapService implements WorkspaceBootstrapService {
 
     @Override
     public ClientWorkspace bootstrap(Path rootDirectory) {
-        Path assignmentsDirectory = rootDirectory.resolve("Assignments");
-        Path submissionsDirectory = rootDirectory.resolve("Submissions");
-        Path feedbackDirectory = rootDirectory.resolve("Feedback");
         Path databasePath = rootDirectory.resolve("sync-state.db");
-
         try {
-            Files.createDirectories(assignmentsDirectory);
-            Files.createDirectories(submissionsDirectory);
-            Files.createDirectories(feedbackDirectory);
+            Files.createDirectories(rootDirectory);
         } catch (Exception exception) {
-            throw new IllegalStateException("Failed to create client workspace folders.", exception);
+            throw new IllegalStateException("Failed to create workspace root.", exception);
         }
-
         WorkspaceLayout.createTermAndCourses(rootDirectory, courseRegistry);
-
         new SyncStateRepository(databasePath);
-
-        return new ClientWorkspace(
-            rootDirectory,
-            assignmentsDirectory,
-            submissionsDirectory,
-            feedbackDirectory,
-            databasePath
-        );
+        return new ClientWorkspace(rootDirectory, databasePath);
     }
 }

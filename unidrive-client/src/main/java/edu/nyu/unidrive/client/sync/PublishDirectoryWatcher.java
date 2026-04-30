@@ -1,16 +1,22 @@
 package edu.nyu.unidrive.client.sync;
 
+import edu.nyu.unidrive.common.workspace.CoursePath;
+import edu.nyu.unidrive.common.workspace.CoursePath.Leaf;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,17 +24,14 @@ import java.util.concurrent.TimeUnit;
 
 public final class PublishDirectoryWatcher implements Closeable {
 
-    private final Path publishDirectory;
+    private final Path workspaceRoot;
     private final WatchService watchService;
+    private final Map<WatchKey, Path> watchedDirsByKey = new HashMap<>();
 
-    public PublishDirectoryWatcher(Path publishDirectory) throws IOException {
-        this.publishDirectory = publishDirectory;
+    public PublishDirectoryWatcher(Path workspaceRoot) throws IOException {
+        this.workspaceRoot = workspaceRoot;
         this.watchService = FileSystems.getDefault().newWatchService();
-        publishDirectory.register(
-            watchService,
-            StandardWatchEventKinds.ENTRY_CREATE,
-            StandardWatchEventKinds.ENTRY_MODIFY
-        );
+        registerRecursively(workspaceRoot);
     }
 
     public List<SubmissionFileEvent> pollEvents(Duration timeout) {
@@ -62,15 +65,29 @@ public final class PublishDirectoryWatcher implements Closeable {
     }
 
     private void collectEvents(WatchKey watchKey, Map<Path, SubmissionFileEventType> eventTypesByPath) {
+        Path watchedDir = watchedDirsByKey.get(watchKey);
         for (WatchEvent<?> event : watchKey.pollEvents()) {
             if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
                 continue;
             }
             Path relativePath = (Path) event.context();
-            Path absolutePath = publishDirectory.resolve(relativePath);
+            Path absolutePath = (watchedDir == null ? workspaceRoot : watchedDir).resolve(relativePath);
+
+            if (event.kind() == StandardWatchEventKinds.ENTRY_CREATE && Files.isDirectory(absolutePath)) {
+                try {
+                    registerRecursively(absolutePath);
+                } catch (IOException ignored) {
+                }
+                continue;
+            }
+
             if (!Files.isRegularFile(absolutePath)) {
                 continue;
             }
+            if (!isPublishFile(absolutePath)) {
+                continue;
+            }
+
             SubmissionFileEventType newType = mapEventType(event.kind());
             SubmissionFileEventType existingType = eventTypesByPath.get(absolutePath);
             if (existingType == SubmissionFileEventType.CREATED || newType == SubmissionFileEventType.MODIFIED && existingType != null) {
@@ -81,10 +98,34 @@ public final class PublishDirectoryWatcher implements Closeable {
         watchKey.reset();
     }
 
+    private boolean isPublishFile(Path absolutePath) {
+        return CoursePath.parseFromWorkspace(workspaceRoot, absolutePath)
+            .map(parsed -> parsed.leaf() == Leaf.PUBLISH)
+            .orElse(false);
+    }
+
     private SubmissionFileEventType mapEventType(WatchEvent.Kind<?> kind) {
         if (kind == StandardWatchEventKinds.ENTRY_CREATE) {
             return SubmissionFileEventType.CREATED;
         }
         return SubmissionFileEventType.MODIFIED;
+    }
+
+    private void registerRecursively(Path root) throws IOException {
+        if (!Files.isDirectory(root)) {
+            return;
+        }
+        Files.walkFileTree(root, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                WatchKey key = dir.register(
+                    watchService,
+                    StandardWatchEventKinds.ENTRY_CREATE,
+                    StandardWatchEventKinds.ENTRY_MODIFY
+                );
+                watchedDirsByKey.put(key, dir);
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 }

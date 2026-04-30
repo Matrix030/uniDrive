@@ -17,29 +17,14 @@ public final class InstructorFolderBootstrapService {
     }
 
     public InstructorWorkspace bootstrap(Path rootDirectory) {
-        Path publishDirectory = rootDirectory.resolve("Publish");
-        Path submissionsDirectory = rootDirectory.resolve("Submissions");
-        Path feedbackDirectory = rootDirectory.resolve("Feedback");
         Path databasePath = rootDirectory.resolve("sync-state.db");
-
         try {
-            Files.createDirectories(publishDirectory);
-            Files.createDirectories(submissionsDirectory);
-            Files.createDirectories(feedbackDirectory);
+            Files.createDirectories(rootDirectory);
         } catch (Exception exception) {
-            throw new IllegalStateException("Failed to create instructor workspace folders.", exception);
+            throw new IllegalStateException("Failed to create workspace root.", exception);
         }
-
         WorkspaceLayout.createTermAndCourses(rootDirectory, courseRegistry);
-
         new SyncStateRepository(databasePath);
-
-        return new InstructorWorkspace(
-            rootDirectory,
-            publishDirectory,
-            submissionsDirectory,
-            feedbackDirectory,
-            databasePath
-        );
+        return new InstructorWorkspace(rootDirectory, databasePath);
     }
 }

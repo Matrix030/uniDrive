@@ -33,8 +33,8 @@ public final class SceneNavigator {
     }
 
     public void showFolderPickerScene(String userId, UserRole role) {
-        FolderPickerScene scene = new FolderPickerScene(stage, (workspace, assignmentId) -> {
-            SessionConfig config = new SessionConfig(userId, role, workspace, assignmentId, baseUrl);
+        FolderPickerScene scene = new FolderPickerScene(stage, workspace -> {
+            SessionConfig config = new SessionConfig(userId, role, workspace, baseUrl);
             persistence.save(config);
             showDashboardScene(config);
         });

@@ -6,7 +6,6 @@ import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
@@ -37,8 +36,6 @@ public final class FolderPickerScene {
             }
         });
 
-        TextField assignmentField = new TextField("assignment-1");
-
         Label statusLabel = new Label();
 
         Button continueButton = new Button("Continue");
@@ -47,29 +44,22 @@ public final class FolderPickerScene {
                 statusLabel.setText("Please select a workspace folder.");
                 return;
             }
-            String assignmentId = assignmentField.getText() == null ? "" : assignmentField.getText().trim();
-            if (assignmentId.isEmpty()) {
-                statusLabel.setText("Please enter an assignment ID.");
-                return;
-            }
-            onPicked.onFolderPicked(selected[0], assignmentId);
+            onPicked.onFolderPicked(selected[0]);
         });
 
         VBox root = new VBox(
             12,
             new Label("Choose a folder for your University Drive workspace."),
             new HBox(8, browseButton, pathLabel),
-            new Label("Assignment ID:"),
-            assignmentField,
             continueButton,
             statusLabel
         );
         root.setPadding(new Insets(24));
-        return new Scene(root, 520, 280);
+        return new Scene(root, 520, 220);
     }
 
     @FunctionalInterface
     public interface FolderPickedCallback {
-        void onFolderPicked(Path workspaceDirectory, String assignmentId);
+        void onFolderPicked(Path workspaceDirectory);
     }
 }

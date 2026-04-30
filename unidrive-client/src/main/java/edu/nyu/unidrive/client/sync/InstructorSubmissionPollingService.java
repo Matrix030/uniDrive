@@ -8,37 +8,38 @@ import edu.nyu.unidrive.client.storage.ReceivedStateRepository;
 import edu.nyu.unidrive.common.dto.SubmissionSummaryResponse;
 import edu.nyu.unidrive.common.model.SyncStatus;
 import edu.nyu.unidrive.common.util.FileHasher;
+import edu.nyu.unidrive.common.workspace.CoursePath;
+import edu.nyu.unidrive.common.workspace.MockCourseRegistry;
+import edu.nyu.unidrive.common.workspace.MockCourseRegistry.Course;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 public final class InstructorSubmissionPollingService implements SyncServiceHandle {
 
     private final SubmissionApiClient submissionApiClient;
-    private final Path submissionsDirectory;
-    private final Path feedbackDirectory;
+    private final Path workspaceRoot;
+    private final MockCourseRegistry courseRegistry;
     private final ReceivedStateRepository receivedStateRepository;
-    private final String assignmentId;
     private final Duration pollInterval;
     private final Map<String, String> latestSubmissionByStudent = new ConcurrentHashMap<>();
     private Thread workerThread;
 
     public InstructorSubmissionPollingService(
         SubmissionApiClient submissionApiClient,
-        Path submissionsDirectory,
-        Path feedbackDirectory,
+        Path workspaceRoot,
+        MockCourseRegistry courseRegistry,
         ReceivedStateRepository receivedStateRepository,
-        String assignmentId,
         Duration pollInterval
     ) {
         this.submissionApiClient = submissionApiClient;
-        this.submissionsDirectory = submissionsDirectory;
-        this.feedbackDirectory = feedbackDirectory;
+        this.workspaceRoot = workspaceRoot;
+        this.courseRegistry = courseRegistry;
         this.receivedStateRepository = receivedStateRepository;
-        this.assignmentId = assignmentId;
         this.pollInterval = pollInterval;
     }
 
@@ -54,39 +55,44 @@ public final class InstructorSubmissionPollingService implements SyncServiceHand
 
     public void processOnce() {
         try {
-            for (SubmissionSummaryResponse submission : submissionApiClient.listSubmissions(assignmentId)) {
-                latestSubmissionByStudent.put(submission.getStudentId(), submission.getSubmissionId());
-
-                Path studentDirectory = submissionsDirectory.resolve(submission.getStudentId());
-                Files.createDirectories(studentDirectory);
-
-                Files.createDirectories(feedbackDirectory.resolve(submission.getStudentId()));
-
-                Path destination = studentDirectory.resolve(submission.getFileName());
-                if (Files.exists(destination) && FileHasher.sha256Hex(destination).equals(submission.getSha256())) {
-                    receivedStateRepository.save(new ReceivedStateRecord(
-                        destination,
-                        submission.getSubmissionId(),
-                        submission.getSha256(),
-                        SyncStatus.SYNCED,
-                        System.currentTimeMillis(),
-                        ReceivedReconcileService.SOURCE_INSTRUCTOR_SUBMISSIONS
-                    ));
+            for (Course course : courseRegistry.courses()) {
+                Path courseDir = workspaceRoot.resolve(courseRegistry.currentTerm()).resolve(course.slug());
+                if (!Files.isDirectory(courseDir)) {
                     continue;
                 }
+                try (Stream<Path> assignmentDirs = Files.list(courseDir)) {
+                    assignmentDirs
+                        .filter(Files::isDirectory)
+                        .forEach(assignmentDir -> {
+                            CoursePath coursePath = new CoursePath(
+                                courseRegistry.currentTerm(),
+                                course.slug(),
+                                assignmentDir.getFileName().toString()
+                            );
+                            try {
+                                pollAssignment(coursePath, assignmentDir);
+                            } catch (IOException ignored) {
+                            }
+                        });
+                }
+            }
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to scan instructor workspace.", exception);
+        }
+    }
 
-                receivedStateRepository.save(new ReceivedStateRecord(
-                    destination,
-                    submission.getSubmissionId(),
-                    submission.getSha256(),
-                    SyncStatus.PENDING,
-                    0L,
-                    ReceivedReconcileService.SOURCE_INSTRUCTOR_SUBMISSIONS
-                ));
+    private void pollAssignment(CoursePath coursePath, Path assignmentDir) throws IOException {
+        Path submissionsDir = assignmentDir.resolve(CoursePath.SUBMISSIONS_DIR);
+        Files.createDirectories(submissionsDir);
 
-                DownloadedFile download = submissionApiClient.downloadSubmission(submission.getSubmissionId());
-                Files.write(destination, download.content());
+        for (SubmissionSummaryResponse submission : submissionApiClient.listSubmissions(coursePath)) {
+            latestSubmissionByStudent.put(submission.getStudentId(), submission.getSubmissionId());
 
+            Path studentDir = submissionsDir.resolve(CoursePath.STUDENT_PREFIX + submission.getStudentId());
+            Files.createDirectories(studentDir);
+
+            Path destination = studentDir.resolve(submission.getFileName());
+            if (Files.exists(destination) && FileHasher.sha256Hex(destination).equals(submission.getSha256())) {
                 receivedStateRepository.save(new ReceivedStateRecord(
                     destination,
                     submission.getSubmissionId(),
@@ -95,9 +101,29 @@ public final class InstructorSubmissionPollingService implements SyncServiceHand
                     System.currentTimeMillis(),
                     ReceivedReconcileService.SOURCE_INSTRUCTOR_SUBMISSIONS
                 ));
+                continue;
             }
-        } catch (IOException exception) {
-            throw new IllegalStateException("Failed to synchronize instructor submissions.", exception);
+
+            receivedStateRepository.save(new ReceivedStateRecord(
+                destination,
+                submission.getSubmissionId(),
+                submission.getSha256(),
+                SyncStatus.PENDING,
+                0L,
+                ReceivedReconcileService.SOURCE_INSTRUCTOR_SUBMISSIONS
+            ));
+
+            DownloadedFile download = submissionApiClient.downloadSubmission(submission.getSubmissionId());
+            Files.write(destination, download.content());
+
+            receivedStateRepository.save(new ReceivedStateRecord(
+                destination,
+                submission.getSubmissionId(),
+                submission.getSha256(),
+                SyncStatus.SYNCED,
+                System.currentTimeMillis(),
+                ReceivedReconcileService.SOURCE_INSTRUCTOR_SUBMISSIONS
+            ));
         }
     }
 

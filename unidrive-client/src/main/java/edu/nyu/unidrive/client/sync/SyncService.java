@@ -20,11 +20,10 @@ public final class SyncService implements SyncServiceHandle {
     private final SubmissionUploadService uploadService;
     private final SubmissionReconcileService reconcileService;
     private final SyncStateRepository syncStateRepository;
-    private final String assignmentId;
     private final String studentId;
     private final Duration pollTimeout;
     private final ExecutorService uploadExecutor;
-    private final Path submissionsDirectory;
+    private final Path workspaceRoot;
     private final Map<Path, RetryState> retryStateByPath = new ConcurrentHashMap<>();
     private final Map<Path, Boolean> inFlight = new ConcurrentHashMap<>();
 
@@ -36,8 +35,7 @@ public final class SyncService implements SyncServiceHandle {
         SubmissionUploadService uploadService,
         SubmissionReconcileService reconcileService,
         SyncStateRepository syncStateRepository,
-        Path submissionsDirectory,
-        String assignmentId,
+        Path workspaceRoot,
         String studentId,
         Duration pollTimeout
     ) {
@@ -46,8 +44,7 @@ public final class SyncService implements SyncServiceHandle {
         this.uploadService = uploadService;
         this.reconcileService = reconcileService;
         this.syncStateRepository = syncStateRepository;
-        this.submissionsDirectory = submissionsDirectory;
-        this.assignmentId = assignmentId;
+        this.workspaceRoot = workspaceRoot;
         this.studentId = studentId;
         this.pollTimeout = pollTimeout;
         this.uploadExecutor = Executors.newFixedThreadPool(2);
@@ -110,7 +107,7 @@ public final class SyncService implements SyncServiceHandle {
     }
 
     private void runLoop() {
-        reconcileService.reconcileExistingSubmissions(submissionsDirectory);
+        reconcileService.reconcileExistingSubmissions(workspaceRoot);
 
         while (!Thread.currentThread().isInterrupted()) {
             processOnce();
@@ -131,7 +128,7 @@ public final class SyncService implements SyncServiceHandle {
 
         uploadExecutor.submit(() -> {
             try {
-                SyncStatus result = uploadService.uploadPendingSubmission(assignmentId, studentId, path);
+                SyncStatus result = uploadService.uploadPendingSubmission(studentId, path);
                 if (result == SyncStatus.SYNCED) {
                     state.reset();
                 } else if (result == SyncStatus.FAILED) {

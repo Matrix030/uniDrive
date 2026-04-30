@@ -1,16 +1,21 @@
 package edu.nyu.unidrive.client.sync;
 
-import java.io.Closeable;
+import edu.nyu.unidrive.common.workspace.CoursePath;
+import edu.nyu.unidrive.common.workspace.CoursePath.Leaf;
 import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
-import java.nio.file.FileSystems;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,19 +23,17 @@ import java.util.concurrent.TimeUnit;
 
 public final class SubmissionDirectoryWatcher implements SubmissionEventSource {
 
-    private final Path submissionsDirectory;
+    private final Path workspaceRoot;
     private final WatchService watchService;
+    private final Map<WatchKey, Path> watchedDirsByKey = new HashMap<>();
 
-    public SubmissionDirectoryWatcher(Path submissionsDirectory) throws IOException {
-        this.submissionsDirectory = submissionsDirectory;
+    public SubmissionDirectoryWatcher(Path workspaceRoot) throws IOException {
+        this.workspaceRoot = workspaceRoot;
         this.watchService = FileSystems.getDefault().newWatchService();
-        submissionsDirectory.register(
-            watchService,
-            StandardWatchEventKinds.ENTRY_CREATE,
-            StandardWatchEventKinds.ENTRY_MODIFY
-        );
+        registerRecursively(workspaceRoot);
     }
 
+    @Override
     public List<SubmissionFileEvent> pollEvents(Duration timeout) {
         try {
             WatchKey firstKey = watchService.poll(timeout.toMillis(), TimeUnit.MILLISECONDS);
@@ -63,14 +66,26 @@ public final class SubmissionDirectoryWatcher implements SubmissionEventSource {
     }
 
     private void collectEvents(WatchKey watchKey, Map<Path, SubmissionFileEventType> eventTypesByPath) {
+        Path watchedDir = watchedDirsByKey.get(watchKey);
         for (WatchEvent<?> event : watchKey.pollEvents()) {
             if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
                 continue;
             }
-
             Path relativePath = (Path) event.context();
-            Path absolutePath = submissionsDirectory.resolve(relativePath);
+            Path absolutePath = (watchedDir == null ? workspaceRoot : watchedDir).resolve(relativePath);
+
+            if (event.kind() == StandardWatchEventKinds.ENTRY_CREATE && Files.isDirectory(absolutePath)) {
+                try {
+                    registerRecursively(absolutePath);
+                } catch (IOException ignored) {
+                }
+                continue;
+            }
+
             if (!Files.isRegularFile(absolutePath)) {
+                continue;
+            }
+            if (!isSubmissionFile(absolutePath)) {
                 continue;
             }
             if (relativePath.getFileName() != null && "desktop.ini".equalsIgnoreCase(relativePath.getFileName().toString())) {
@@ -82,11 +97,15 @@ public final class SubmissionDirectoryWatcher implements SubmissionEventSource {
             if (existingType == SubmissionFileEventType.CREATED || newType == SubmissionFileEventType.MODIFIED && existingType != null) {
                 continue;
             }
-
             eventTypesByPath.put(absolutePath, newType);
         }
-
         watchKey.reset();
+    }
+
+    private boolean isSubmissionFile(Path absolutePath) {
+        return CoursePath.parseFromWorkspace(workspaceRoot, absolutePath)
+            .map(parsed -> parsed.leaf() == Leaf.SUBMISSIONS)
+            .orElse(false);
     }
 
     private SubmissionFileEventType mapEventType(WatchEvent.Kind<?> kind) {
@@ -94,5 +113,23 @@ public final class SubmissionDirectoryWatcher implements SubmissionEventSource {
             return SubmissionFileEventType.CREATED;
         }
         return SubmissionFileEventType.MODIFIED;
+    }
+
+    private void registerRecursively(Path root) throws IOException {
+        if (!Files.isDirectory(root)) {
+            return;
+        }
+        Files.walkFileTree(root, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                WatchKey key = dir.register(
+                    watchService,
+                    StandardWatchEventKinds.ENTRY_CREATE,
+                    StandardWatchEventKinds.ENTRY_MODIFY
+                );
+                watchedDirsByKey.put(key, dir);
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 }

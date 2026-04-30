@@ -5,10 +5,14 @@ import edu.nyu.unidrive.client.storage.SyncStateRecord;
 import edu.nyu.unidrive.client.storage.SyncStateRepository;
 import edu.nyu.unidrive.common.model.SyncStatus;
 import edu.nyu.unidrive.common.util.FileHasher;
+import edu.nyu.unidrive.common.workspace.CoursePath;
+import edu.nyu.unidrive.common.workspace.CoursePath.Leaf;
+import edu.nyu.unidrive.common.workspace.CoursePath.ParsedLocation;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 public final class PublishSyncService implements SyncServiceHandle {
@@ -16,6 +20,7 @@ public final class PublishSyncService implements SyncServiceHandle {
     private final PublishDirectoryWatcher watcher;
     private final PublishUploadService uploadService;
     private final SyncStateRepository syncStateRepository;
+    private final Path workspaceRoot;
     private final Duration pollTimeout;
     private final Set<Path> publishedFiles = new HashSet<>();
     private Thread workerThread;
@@ -24,11 +29,13 @@ public final class PublishSyncService implements SyncServiceHandle {
         PublishDirectoryWatcher watcher,
         PublishUploadService uploadService,
         SyncStateRepository syncStateRepository,
+        Path workspaceRoot,
         Duration pollTimeout
     ) {
         this.watcher = watcher;
         this.uploadService = uploadService;
         this.syncStateRepository = syncStateRepository;
+        this.workspaceRoot = workspaceRoot;
         this.pollTimeout = pollTimeout;
     }
 
@@ -51,6 +58,12 @@ public final class PublishSyncService implements SyncServiceHandle {
                 continue;
             }
 
+            Optional<ParsedLocation> parsed = CoursePath.parseFromWorkspace(workspaceRoot, event.path());
+            if (parsed.isEmpty() || parsed.get().leaf() != Leaf.PUBLISH) {
+                continue;
+            }
+            CoursePath coursePath = parsed.get().coursePath();
+
             syncStateRepository.findByLocalPath(event.path()).ifPresent(existing -> {
                 if (existing.status() == SyncStatus.SYNCED && existing.sha256() != null) {
                     try {
@@ -68,7 +81,7 @@ public final class PublishSyncService implements SyncServiceHandle {
 
             syncStateRepository.save(new SyncStateRecord(event.path(), null, null, SyncStatus.PENDING, 0L));
             try {
-                var response = uploadService.publish(event.path());
+                var response = uploadService.publish(coursePath, event.path());
                 syncStateRepository.save(new SyncStateRecord(
                     event.path(),
                     response.getAssignmentId(),

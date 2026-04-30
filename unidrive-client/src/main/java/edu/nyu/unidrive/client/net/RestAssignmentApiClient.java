@@ -3,6 +3,7 @@ package edu.nyu.unidrive.client.net;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.nyu.unidrive.common.dto.AssignmentSummaryResponse;
+import edu.nyu.unidrive.common.workspace.CoursePath;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,13 +31,16 @@ public final class RestAssignmentApiClient implements AssignmentApiClient {
     }
 
     @Override
-    public List<AssignmentSummaryResponse> listAssignments() throws IOException {
-        ResponseEntity<String> response = restTemplate.getForEntity(baseUrl + "/api/v1/assignments", String.class);
+    public List<AssignmentSummaryResponse> listAssignments(String term, String courseSlug) throws IOException {
+        String url = baseUrl + "/api/v1/assignments?term=" + term + "&course=" + courseSlug;
+        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
         JsonNode dataNode = objectMapper.readTree(response.getBody()).path("data");
         List<AssignmentSummaryResponse> assignments = new ArrayList<>();
         for (JsonNode assignmentNode : dataNode) {
             assignments.add(new AssignmentSummaryResponse(
                 assignmentNode.path("assignmentId").asText(),
+                assignmentNode.path("term").asText(null),
+                assignmentNode.path("course").asText(null),
                 assignmentNode.path("title").asText(),
                 assignmentNode.path("fileName").asText(),
                 assignmentNode.path("sha256").asText()
@@ -55,7 +59,7 @@ public final class RestAssignmentApiClient implements AssignmentApiClient {
     }
 
     @Override
-    public AssignmentSummaryResponse publishAssignment(String title, Path file) throws IOException {
+    public AssignmentSummaryResponse publishAssignment(CoursePath coursePath, String title, Path file) throws IOException {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
 
@@ -63,14 +67,19 @@ public final class RestAssignmentApiClient implements AssignmentApiClient {
         body.add("title", title);
         body.add("file", new NamedByteArrayResource(file.getFileName().toString(), Files.readAllBytes(file)));
 
+        String url = baseUrl + "/api/v1/instructor/assignments/" + coursePath.term()
+            + "/" + coursePath.courseSlug()
+            + "/" + coursePath.assignmentId();
         ResponseEntity<String> response = restTemplate.postForEntity(
-            baseUrl + "/api/v1/instructor/assignments",
+            url,
             new HttpEntity<>(body, headers),
             String.class
         );
         JsonNode dataNode = objectMapper.readTree(response.getBody()).path("data");
         return new AssignmentSummaryResponse(
             dataNode.path("assignmentId").asText(),
+            dataNode.path("term").asText(null),
+            dataNode.path("course").asText(null),
             dataNode.path("title").asText(),
             dataNode.path("fileName").asText(),
             dataNode.path("sha256").asText()

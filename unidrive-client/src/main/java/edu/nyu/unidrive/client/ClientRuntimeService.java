@@ -14,9 +14,9 @@ public final class ClientRuntimeService {
         this.syncServiceFactory = syncServiceFactory;
     }
 
-    public ClientRuntime start(Path rootDirectory, String assignmentId, String studentId, String baseUrl) {
+    public ClientRuntime start(Path rootDirectory, String studentId, String baseUrl) {
         ClientWorkspace workspace = folderBootstrapService.bootstrap(rootDirectory);
-        SyncServiceHandle syncService = syncServiceFactory.create(workspace, assignmentId, studentId, baseUrl);
+        SyncServiceHandle syncService = syncServiceFactory.create(workspace, studentId, baseUrl);
         syncService.start();
         return new ClientRuntime(workspace, syncService);
     }

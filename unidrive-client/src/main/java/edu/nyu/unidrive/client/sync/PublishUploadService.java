@@ -2,6 +2,7 @@ package edu.nyu.unidrive.client.sync;
 
 import edu.nyu.unidrive.client.net.AssignmentApiClient;
 import edu.nyu.unidrive.common.dto.AssignmentSummaryResponse;
+import edu.nyu.unidrive.common.workspace.CoursePath;
 import java.io.IOException;
 import java.nio.file.Path;
 
@@ -13,10 +14,10 @@ public final class PublishUploadService {
         this.assignmentApiClient = assignmentApiClient;
     }
 
-    public AssignmentSummaryResponse publish(Path file) throws IOException {
+    public AssignmentSummaryResponse publish(CoursePath coursePath, Path file) throws IOException {
         String fileName = file.getFileName().toString();
         String title = stripExtension(fileName);
-        return assignmentApiClient.publishAssignment(title, file);
+        return assignmentApiClient.publishAssignment(coursePath, title, file);
     }
 
     private String stripExtension(String fileName) {

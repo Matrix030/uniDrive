@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.nyu.unidrive.common.dto.SubmissionSummaryResponse;
 import edu.nyu.unidrive.common.dto.SubmissionUploadResponse;
+import edu.nyu.unidrive.common.workspace.CoursePath;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,7 +32,7 @@ public final class RestSubmissionApiClient implements SubmissionApiClient {
     }
 
     @Override
-    public SubmissionUploadResponse uploadSubmission(String assignmentId, String studentId, Path filePath, String sha256)
+    public SubmissionUploadResponse uploadSubmission(CoursePath coursePath, String studentId, Path filePath, String sha256)
         throws IOException {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
@@ -41,8 +42,11 @@ public final class RestSubmissionApiClient implements SubmissionApiClient {
         body.add("studentId", studentId);
         body.add("file", new NamedByteArrayResource(filePath.getFileName().toString(), Files.readAllBytes(filePath)));
 
+        String url = baseUrl + "/api/v1/submissions/" + coursePath.term()
+            + "/" + coursePath.courseSlug()
+            + "/" + coursePath.assignmentId();
         ResponseEntity<String> response = restTemplate.postForEntity(
-            baseUrl + "/api/v1/submissions/" + assignmentId,
+            url,
             new HttpEntity<>(body, headers),
             String.class
         );
@@ -50,6 +54,8 @@ public final class RestSubmissionApiClient implements SubmissionApiClient {
         JsonNode dataNode = objectMapper.readTree(response.getBody()).path("data");
         return new SubmissionUploadResponse(
             dataNode.path("submissionId").asText(),
+            dataNode.path("term").asText(null),
+            dataNode.path("course").asText(null),
             dataNode.path("assignmentId").asText(),
             dataNode.path("studentId").asText(),
             dataNode.path("fileName").asText(),
@@ -58,16 +64,18 @@ public final class RestSubmissionApiClient implements SubmissionApiClient {
     }
 
     @Override
-    public List<SubmissionSummaryResponse> listSubmissions(String assignmentId) throws IOException {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-            baseUrl + "/api/v1/submissions?assignmentId=" + assignmentId,
-            String.class
-        );
+    public List<SubmissionSummaryResponse> listSubmissions(CoursePath coursePath) throws IOException {
+        String url = baseUrl + "/api/v1/submissions?term=" + coursePath.term()
+            + "&course=" + coursePath.courseSlug()
+            + "&assignmentId=" + coursePath.assignmentId();
+        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
         JsonNode dataNode = objectMapper.readTree(response.getBody()).path("data");
         List<SubmissionSummaryResponse> submissions = new ArrayList<>();
         for (JsonNode node : dataNode) {
             submissions.add(new SubmissionSummaryResponse(
                 node.path("submissionId").asText(),
+                node.path("term").asText(null),
+                node.path("course").asText(null),
                 node.path("assignmentId").asText(),
                 node.path("studentId").asText(),
                 node.path("fileName").asText(),

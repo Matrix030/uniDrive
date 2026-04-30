@@ -6,20 +6,36 @@ import edu.nyu.unidrive.client.storage.SyncStateRepository;
 import edu.nyu.unidrive.common.dto.SubmissionUploadResponse;
 import edu.nyu.unidrive.common.model.SyncStatus;
 import edu.nyu.unidrive.common.util.FileHasher;
+import edu.nyu.unidrive.common.workspace.CoursePath;
+import edu.nyu.unidrive.common.workspace.CoursePath.Leaf;
+import edu.nyu.unidrive.common.workspace.CoursePath.ParsedLocation;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Optional;
 
 public final class SubmissionUploadService {
 
     private final SyncStateRepository syncStateRepository;
     private final SubmissionApiClient submissionApiClient;
+    private final Path workspaceRoot;
 
-    public SubmissionUploadService(SyncStateRepository syncStateRepository, SubmissionApiClient submissionApiClient) {
+    public SubmissionUploadService(
+        SyncStateRepository syncStateRepository,
+        SubmissionApiClient submissionApiClient,
+        Path workspaceRoot
+    ) {
         this.syncStateRepository = syncStateRepository;
         this.submissionApiClient = submissionApiClient;
+        this.workspaceRoot = workspaceRoot;
     }
 
-    public SyncStatus uploadPendingSubmission(String assignmentId, String studentId, Path localPath) {
+    public SyncStatus uploadPendingSubmission(String studentId, Path localPath) {
+        Optional<ParsedLocation> parsed = CoursePath.parseFromWorkspace(workspaceRoot, localPath);
+        if (parsed.isEmpty() || parsed.get().leaf() != Leaf.SUBMISSIONS) {
+            return SyncStatus.FAILED;
+        }
+        CoursePath coursePath = parsed.get().coursePath();
+
         SyncStateRecord existingRecord = syncStateRepository.findByLocalPath(localPath).orElse(null);
 
         try {
@@ -48,7 +64,7 @@ public final class SubmissionUploadService {
                 existingRecord == null ? 0L : existingRecord.lastSynced()
             ));
 
-            SubmissionUploadResponse response = submissionApiClient.uploadSubmission(assignmentId, studentId, localPath, sha256);
+            SubmissionUploadResponse response = submissionApiClient.uploadSubmission(coursePath, studentId, localPath, sha256);
             syncStateRepository.save(new SyncStateRecord(
                 localPath,
                 response.getSubmissionId(),

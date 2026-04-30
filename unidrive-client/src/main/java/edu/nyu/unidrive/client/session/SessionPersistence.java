@@ -14,7 +14,6 @@ public final class SessionPersistence {
     private static final String KEY_USER_ID = "userId";
     private static final String KEY_ROLE = "role";
     private static final String KEY_WORKSPACE = "workspaceDirectory";
-    private static final String KEY_ASSIGNMENT = "assignmentId";
     private static final String KEY_BASE_URL = "baseUrl";
 
     private final Path configDirectory;
@@ -41,9 +40,8 @@ public final class SessionPersistence {
         String userId = props.getProperty(KEY_USER_ID);
         String role = props.getProperty(KEY_ROLE);
         String workspace = props.getProperty(KEY_WORKSPACE);
-        String assignmentId = props.getProperty(KEY_ASSIGNMENT);
         String baseUrl = props.getProperty(KEY_BASE_URL);
-        if (userId == null || role == null || workspace == null || assignmentId == null || baseUrl == null) {
+        if (userId == null || role == null || workspace == null || baseUrl == null) {
             return Optional.empty();
         }
         try {
@@ -51,7 +49,6 @@ public final class SessionPersistence {
                 userId,
                 UserRole.fromString(role),
                 Path.of(workspace),
-                assignmentId,
                 baseUrl
             ));
         } catch (IllegalArgumentException e) {
@@ -69,7 +66,6 @@ public final class SessionPersistence {
         props.setProperty(KEY_USER_ID, config.userId());
         props.setProperty(KEY_ROLE, config.role().name());
         props.setProperty(KEY_WORKSPACE, config.workspaceDirectory().toString());
-        props.setProperty(KEY_ASSIGNMENT, config.assignmentId());
         props.setProperty(KEY_BASE_URL, config.baseUrl());
         Path file = configDirectory.resolve(FILE_NAME);
         try (OutputStream out = Files.newOutputStream(file)) {
