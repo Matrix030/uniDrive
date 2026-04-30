@@ -33,4 +33,15 @@ class InstructorFolderBootstrapServiceTest {
         assertTrue(Files.isDirectory(workspace.publishDirectory()));
         assertTrue(Files.exists(workspace.databasePath()));
     }
+
+    @Test
+    void bootstrapAlsoSeedsTermAndCourseDirectories(@TempDir Path tempDir) {
+        new InstructorFolderBootstrapService().bootstrap(tempDir);
+
+        Path termRoot = tempDir.resolve("fall2026");
+        assertTrue(Files.isDirectory(termRoot));
+        assertTrue(Files.isDirectory(termRoot.resolve("daa")));
+        assertTrue(Files.isDirectory(termRoot.resolve("java")));
+        assertTrue(Files.isDirectory(termRoot.resolve("bda")));
+    }
 }

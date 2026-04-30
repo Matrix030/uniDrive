@@ -39,4 +39,15 @@ class FolderBootstrapServiceTest {
         assertTrue(Files.isDirectory(tempDir.resolve("Feedback")));
         assertTrue(Files.exists(tempDir.resolve("sync-state.db")));
     }
+
+    @Test
+    void bootstrapAlsoSeedsTermAndCourseDirectories(@TempDir Path tempDir) {
+        new FolderBootstrapService().bootstrap(tempDir);
+
+        Path termRoot = tempDir.resolve("fall2026");
+        assertTrue(Files.isDirectory(termRoot));
+        assertTrue(Files.isDirectory(termRoot.resolve("daa")));
+        assertTrue(Files.isDirectory(termRoot.resolve("java")));
+        assertTrue(Files.isDirectory(termRoot.resolve("bda")));
+    }
 }
