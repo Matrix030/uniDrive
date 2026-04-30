@@ -14,9 +14,13 @@ import edu.nyu.unidrive.client.storage.ReceivedStateRecord;
 import edu.nyu.unidrive.client.storage.ReceivedStateRepository;
 import edu.nyu.unidrive.client.storage.SyncStateRecord;
 import edu.nyu.unidrive.client.storage.SyncStateRepository;
+import edu.nyu.unidrive.client.storage.WorkspaceLayout;
 import edu.nyu.unidrive.client.sync.ReceivedReconcileService;
 import edu.nyu.unidrive.client.sync.SyncDashboardSnapshot;
 import edu.nyu.unidrive.client.sync.SyncDashboardSnapshotService;
+import edu.nyu.unidrive.common.workspace.CoursePath;
+import edu.nyu.unidrive.common.workspace.MockCourseRegistry;
+import edu.nyu.unidrive.common.workspace.MockCourseRegistry.Course;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -30,9 +34,11 @@ import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -109,9 +115,12 @@ public final class DashboardScene {
             statusSummary,
             refreshLabel,
             viewToggle,
-            tableView,
-            switchUserButton
+            tableView
         );
+        if (session.role() == UserRole.INSTRUCTOR) {
+            content.getChildren().add(buildNewAssignmentBar());
+        }
+        content.getChildren().add(switchUserButton);
         VBox.setVgrow(tableView, Priority.ALWAYS);
         Scene scene = new Scene(content, 960, 560);
 
@@ -151,6 +160,55 @@ public final class DashboardScene {
             workspaceRoot = workspace.rootDirectory();
             databasePath = workspace.databasePath();
         }
+    }
+
+    private HBox buildNewAssignmentBar() {
+        MockCourseRegistry registry = new MockCourseRegistry();
+        ChoiceBox<Course> courseChoice = new ChoiceBox<>(FXCollections.observableArrayList(registry.courses()));
+        courseChoice.setConverter(new javafx.util.StringConverter<>() {
+            @Override
+            public String toString(Course course) {
+                return course == null ? "" : course.slug() + " — " + course.displayName();
+            }
+
+            @Override
+            public Course fromString(String s) {
+                return null;
+            }
+        });
+        if (!registry.courses().isEmpty()) {
+            courseChoice.getSelectionModel().selectFirst();
+        }
+
+        TextField idField = new TextField();
+        idField.setPromptText("assignment id (e.g. hw1)");
+
+        Label statusLabel = new Label();
+
+        Button createButton = new Button("Create assignment slot");
+        createButton.setOnAction(event -> {
+            Course course = courseChoice.getValue();
+            String assignmentId = idField.getText() == null ? "" : idField.getText().trim();
+            if (course == null) {
+                statusLabel.setText("Choose a course.");
+                return;
+            }
+            if (assignmentId.isEmpty()) {
+                statusLabel.setText("Enter an assignment id.");
+                return;
+            }
+            try {
+                CoursePath coursePath = new CoursePath(registry.currentTerm(), course.slug(), assignmentId);
+                WorkspaceLayout.ensureAssignmentSlot(workspaceRoot, coursePath);
+                idField.clear();
+                statusLabel.setText("Created " + coursePath.toRelativePath() + " — drop a file into publish/ to publish.");
+            } catch (RuntimeException exception) {
+                statusLabel.setText("Failed: " + exception.getMessage());
+            }
+        });
+
+        HBox bar = new HBox(8, new Label("New assignment:"), courseChoice, idField, createButton, statusLabel);
+        return bar;
     }
 
     private TableView<DashboardRow> createTableView() {
