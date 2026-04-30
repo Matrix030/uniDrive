@@ -50,9 +50,10 @@ public final class RestAssignmentApiClient implements AssignmentApiClient {
     }
 
     @Override
-    public DownloadedFile downloadAssignment(String assignmentId) {
+    public DownloadedFile downloadAssignment(String assignmentId, String fileName) {
+        String encodedFileName = java.net.URLEncoder.encode(fileName, java.nio.charset.StandardCharsets.UTF_8);
         ResponseEntity<byte[]> response = restTemplate.getForEntity(
-            baseUrl + "/api/v1/assignments/" + assignmentId + "/download",
+            baseUrl + "/api/v1/assignments/" + assignmentId + "/download?fileName=" + encodedFileName,
             byte[].class
         );
         return new DownloadedFile(extractFileName(response), response.getBody() == null ? new byte[0] : response.getBody());

@@ -199,7 +199,7 @@ public final class DashboardScene {
             }
             try {
                 CoursePath coursePath = new CoursePath(registry.currentTerm(), course.slug(), assignmentId);
-                WorkspaceLayout.ensureAssignmentSlot(workspaceRoot, coursePath);
+                WorkspaceLayout.ensureAssignmentSlot(workspaceRoot, coursePath, edu.nyu.unidrive.common.workspace.WorkspaceRole.INSTRUCTOR);
                 idField.clear();
                 statusLabel.setText("Created " + coursePath.toRelativePath() + " — drop a file into publish/ to publish.");
             } catch (RuntimeException exception) {

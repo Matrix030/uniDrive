@@ -22,10 +22,33 @@ class CoursePathTest {
     }
 
     @Test
-    void publishAndSubmissionsDirsResolveBeneathRoot() {
+    void instructorPublishAndSubmissionsDirsResolveBeneathRoot() {
         CoursePath coursePath = new CoursePath("fall2026", "daa", "hw1");
-        assertEquals(ROOT.resolve("fall2026/daa/hw1/publish"), coursePath.publishDirIn(ROOT));
-        assertEquals(ROOT.resolve("fall2026/daa/hw1/submissions"), coursePath.submissionsDirIn(ROOT));
+        assertEquals(ROOT.resolve("fall2026/daa/hw1/publish"), coursePath.publishDirIn(ROOT, WorkspaceRole.INSTRUCTOR));
+        assertEquals(ROOT.resolve("fall2026/daa/hw1/submissions"), coursePath.submissionsDirIn(ROOT, WorkspaceRole.INSTRUCTOR));
+    }
+
+    @Test
+    void studentFilesAndSubmissionDirsResolveBeneathRoot() {
+        CoursePath coursePath = new CoursePath("fall2026", "daa", "hw1");
+        assertEquals(ROOT.resolve("fall2026/daa/hw1/files"), coursePath.publishDirIn(ROOT, WorkspaceRole.STUDENT));
+        assertEquals(ROOT.resolve("fall2026/daa/hw1/submission"), coursePath.submissionsDirIn(ROOT, WorkspaceRole.STUDENT));
+    }
+
+    @Test
+    void parseRecognizesStudentFilesDir() {
+        Path file = ROOT.resolve("fall2026/daa/hw1/files/spec.pdf");
+        ParsedLocation parsed = CoursePath.parseFromWorkspace(ROOT, file).orElseThrow();
+        assertEquals(Leaf.PUBLISH, parsed.leaf());
+        assertEquals(Path.of("spec.pdf"), parsed.relativeFile());
+    }
+
+    @Test
+    void parseRecognizesStudentSubmissionDir() {
+        Path file = ROOT.resolve("fall2026/daa/hw1/submission/solution.pdf");
+        ParsedLocation parsed = CoursePath.parseFromWorkspace(ROOT, file).orElseThrow();
+        assertEquals(Leaf.SUBMISSIONS, parsed.leaf());
+        assertEquals(Path.of("solution.pdf"), parsed.relativeFile());
     }
 
     @Test

@@ -5,8 +5,10 @@ import java.util.Optional;
 
 public record CoursePath(String term, String courseSlug, String assignmentId) {
 
-    public static final String PUBLISH_DIR = "publish";
-    public static final String SUBMISSIONS_DIR = "submissions";
+    public static final String INSTRUCTOR_PUBLISH_DIR = "publish";
+    public static final String INSTRUCTOR_SUBMISSIONS_DIR = "submissions";
+    public static final String STUDENT_FILES_DIR = "files";
+    public static final String STUDENT_SUBMISSION_DIR = "submission";
     public static final String STUDENT_PREFIX = "student_";
 
     public CoursePath {
@@ -29,12 +31,20 @@ public record CoursePath(String term, String courseSlug, String assignmentId) {
         return workspaceRoot.resolve(toRelativePath());
     }
 
-    public Path publishDirIn(Path workspaceRoot) {
-        return resolveAgainst(workspaceRoot).resolve(PUBLISH_DIR);
+    public Path publishDirIn(Path workspaceRoot, WorkspaceRole role) {
+        return resolveAgainst(workspaceRoot).resolve(publishDirName(role));
     }
 
-    public Path submissionsDirIn(Path workspaceRoot) {
-        return resolveAgainst(workspaceRoot).resolve(SUBMISSIONS_DIR);
+    public Path submissionsDirIn(Path workspaceRoot, WorkspaceRole role) {
+        return resolveAgainst(workspaceRoot).resolve(submissionsDirName(role));
+    }
+
+    public static String publishDirName(WorkspaceRole role) {
+        return role == WorkspaceRole.STUDENT ? STUDENT_FILES_DIR : INSTRUCTOR_PUBLISH_DIR;
+    }
+
+    public static String submissionsDirName(WorkspaceRole role) {
+        return role == WorkspaceRole.STUDENT ? STUDENT_SUBMISSION_DIR : INSTRUCTOR_SUBMISSIONS_DIR;
     }
 
     public static Optional<ParsedLocation> parseFromWorkspace(Path workspaceRoot, Path absoluteFilePath) {
@@ -55,9 +65,9 @@ public record CoursePath(String term, String courseSlug, String assignmentId) {
         String leafName = relative.getName(3).toString();
 
         Leaf leaf;
-        if (PUBLISH_DIR.equals(leafName)) {
+        if (INSTRUCTOR_PUBLISH_DIR.equals(leafName) || STUDENT_FILES_DIR.equals(leafName)) {
             leaf = Leaf.PUBLISH;
-        } else if (SUBMISSIONS_DIR.equals(leafName)) {
+        } else if (INSTRUCTOR_SUBMISSIONS_DIR.equals(leafName) || STUDENT_SUBMISSION_DIR.equals(leafName)) {
             leaf = Leaf.SUBMISSIONS;
         } else {
             return Optional.empty();

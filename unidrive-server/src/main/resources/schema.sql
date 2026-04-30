@@ -5,13 +5,15 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS assignments (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
+    file_name TEXT NOT NULL,
     term TEXT,
     course TEXT,
     title TEXT,
     published_at INTEGER,
     file_path TEXT,
-    hash TEXT
+    hash TEXT,
+    PRIMARY KEY (id, file_name)
 );
 
 CREATE TABLE IF NOT EXISTS submissions (

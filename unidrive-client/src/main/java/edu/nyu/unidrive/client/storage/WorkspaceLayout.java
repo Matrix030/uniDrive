@@ -3,6 +3,7 @@ package edu.nyu.unidrive.client.storage;
 import edu.nyu.unidrive.common.workspace.CoursePath;
 import edu.nyu.unidrive.common.workspace.MockCourseRegistry;
 import edu.nyu.unidrive.common.workspace.MockCourseRegistry.Course;
+import edu.nyu.unidrive.common.workspace.WorkspaceRole;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,9 +25,9 @@ public final class WorkspaceLayout {
         }
     }
 
-    public static AssignmentSlot ensureAssignmentSlot(Path rootDirectory, CoursePath coursePath) {
-        Path publishDir = coursePath.publishDirIn(rootDirectory);
-        Path submissionsDir = coursePath.submissionsDirIn(rootDirectory);
+    public static AssignmentSlot ensureAssignmentSlot(Path rootDirectory, CoursePath coursePath, WorkspaceRole role) {
+        Path publishDir = coursePath.publishDirIn(rootDirectory, role);
+        Path submissionsDir = coursePath.submissionsDirIn(rootDirectory, role);
         try {
             Files.createDirectories(publishDir);
             Files.createDirectories(submissionsDir);

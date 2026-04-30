@@ -10,7 +10,7 @@ public interface AssignmentApiClient {
 
     List<AssignmentSummaryResponse> listAssignments(String term, String courseSlug) throws IOException;
 
-    DownloadedFile downloadAssignment(String assignmentId) throws IOException;
+    DownloadedFile downloadAssignment(String assignmentId, String fileName) throws IOException;
 
     AssignmentSummaryResponse publishAssignment(CoursePath coursePath, String title, Path file) throws IOException;
 }

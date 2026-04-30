@@ -10,6 +10,7 @@ import edu.nyu.unidrive.common.dto.AssignmentSummaryResponse;
 import edu.nyu.unidrive.common.model.SyncStatus;
 import edu.nyu.unidrive.common.util.FileHasher;
 import edu.nyu.unidrive.common.workspace.CoursePath;
+import edu.nyu.unidrive.common.workspace.WorkspaceRole;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,7 +30,7 @@ public class AssignmentSyncService {
             int downloadedCount = 0;
             for (AssignmentSummaryResponse assignment : assignmentApiClient.listAssignments(term, courseSlug)) {
                 CoursePath coursePath = new CoursePath(term, courseSlug, assignment.getAssignmentId());
-                AssignmentSlot slot = WorkspaceLayout.ensureAssignmentSlot(workspaceRoot, coursePath);
+                AssignmentSlot slot = WorkspaceLayout.ensureAssignmentSlot(workspaceRoot, coursePath, WorkspaceRole.STUDENT);
                 Path destination = slot.publishDir().resolve(assignment.getFileName());
 
                 if (Files.exists(destination) && FileHasher.sha256Hex(destination).equals(assignment.getSha256())) {
@@ -53,7 +54,7 @@ public class AssignmentSyncService {
                     ReceivedReconcileService.SOURCE_ASSIGNMENTS
                 ));
 
-                DownloadedFile download = assignmentApiClient.downloadAssignment(assignment.getAssignmentId());
+                DownloadedFile download = assignmentApiClient.downloadAssignment(assignment.getAssignmentId(), assignment.getFileName());
                 Files.write(slot.publishDir().resolve(download.fileName()), download.content());
                 receivedStateRepository.save(new ReceivedStateRecord(
                     destination,
@@ -70,4 +71,5 @@ public class AssignmentSyncService {
             throw new IllegalStateException("Failed to synchronize assignments for " + term + "/" + courseSlug, exception);
         }
     }
+
 }

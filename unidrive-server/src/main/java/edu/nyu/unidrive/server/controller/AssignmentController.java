@@ -47,9 +47,12 @@ public class AssignmentController {
     }
 
     @GetMapping("/api/v1/assignments/{assignmentId}/download")
-    public ResponseEntity<ByteArrayResource> downloadAssignment(@PathVariable("assignmentId") String assignmentId) throws Exception {
+    public ResponseEntity<ByteArrayResource> downloadAssignment(
+        @PathVariable("assignmentId") String assignmentId,
+        @RequestParam("fileName") String fileName
+    ) throws Exception {
         try {
-            AssignmentService.DownloadedAssignment download = assignmentService.loadAssignment(assignmentId);
+            AssignmentService.DownloadedAssignment download = assignmentService.loadAssignment(assignmentId, fileName);
             return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + download.fileName() + "\"")

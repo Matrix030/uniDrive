@@ -47,6 +47,7 @@ public class AssignmentService {
         Files.write(destination, content);
         assignmentRepository.save(
             assignmentId,
+            fileName,
             term,
             course,
             title,
@@ -62,8 +63,8 @@ public class AssignmentService {
         return assignmentRepository.findByTermAndCourse(term, course);
     }
 
-    public DownloadedAssignment loadAssignment(String assignmentId) throws IOException {
-        StoredAssignment assignment = assignmentRepository.findStoredAssignmentById(assignmentId)
+    public DownloadedAssignment loadAssignment(String assignmentId, String fileName) throws IOException {
+        StoredAssignment assignment = assignmentRepository.findStoredAssignmentByIdAndFileName(assignmentId, fileName)
             .orElseThrow(AssignmentNotFoundException::new);
         return new DownloadedAssignment(assignment.originalFileName(), Files.readAllBytes(Path.of(assignment.filePath())));
     }

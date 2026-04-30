@@ -17,7 +17,7 @@ public class AssignmentRepository {
             resultSet.getString("term"),
             resultSet.getString("course"),
             resultSet.getString("title"),
-            Path.of(resultSet.getString("file_path")).getFileName().toString(),
+            resultSet.getString("file_name"),
             resultSet.getString("hash")
         );
 
@@ -29,6 +29,7 @@ public class AssignmentRepository {
 
     public void save(
         String assignmentId,
+        String fileName,
         String term,
         String course,
         String title,
@@ -37,8 +38,9 @@ public class AssignmentRepository {
         String sha256
     ) {
         jdbcTemplate.update(
-            "INSERT INTO assignments (id, term, course, title, published_at, file_path, hash) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO assignments (id, file_name, term, course, title, published_at, file_path, hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             assignmentId,
+            fileName,
             term,
             course,
             title,
@@ -50,7 +52,7 @@ public class AssignmentRepository {
 
     public List<AssignmentSummaryResponse> findByTermAndCourse(String term, String course) {
         return jdbcTemplate.query(
-            "SELECT id, term, course, title, file_path, hash FROM assignments "
+            "SELECT id, file_name, term, course, title, file_path, hash FROM assignments "
                 + "WHERE term = ? AND course = ? ORDER BY published_at DESC",
             SUMMARY_ROW_MAPPER,
             term,
@@ -60,29 +62,32 @@ public class AssignmentRepository {
 
     public List<AssignmentSummaryResponse> findAll() {
         return jdbcTemplate.query(
-            "SELECT id, term, course, title, file_path, hash FROM assignments ORDER BY published_at DESC",
+            "SELECT id, file_name, term, course, title, file_path, hash FROM assignments ORDER BY published_at DESC",
             SUMMARY_ROW_MAPPER
         );
     }
 
-    public Optional<StoredAssignment> findStoredAssignmentById(String assignmentId) {
+    public Optional<StoredAssignment> findStoredAssignmentByIdAndFileName(String assignmentId, String fileName) {
         List<StoredAssignment> assignments = jdbcTemplate.query(
-            "SELECT id, term, course, title, file_path, hash FROM assignments WHERE id = ?",
+            "SELECT id, file_name, term, course, title, file_path, hash FROM assignments WHERE id = ? AND file_name = ?",
             (resultSet, rowNum) -> new StoredAssignment(
                 resultSet.getString("id"),
+                resultSet.getString("file_name"),
                 resultSet.getString("term"),
                 resultSet.getString("course"),
                 resultSet.getString("title"),
                 resultSet.getString("file_path"),
                 resultSet.getString("hash")
             ),
-            assignmentId
+            assignmentId,
+            fileName
         );
         return assignments.stream().findFirst();
     }
 
     public record StoredAssignment(
         String id,
+        String fileName,
         String term,
         String course,
         String title,
@@ -90,7 +95,7 @@ public class AssignmentRepository {
         String sha256
     ) {
         public String originalFileName() {
-            return Path.of(filePath).getFileName().toString();
+            return fileName;
         }
     }
 }

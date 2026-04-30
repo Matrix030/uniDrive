@@ -50,6 +50,17 @@ public final class ReceivedStateRepository {
         }
     }
 
+    public void deleteByLocalPath(Path localPath) {
+        String sql = "DELETE FROM received_state WHERE local_path = ?";
+        try (Connection connection = openConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, localPath.toString());
+            statement.executeUpdate();
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Failed to delete received state.", exception);
+        }
+    }
+
     public Optional<ReceivedStateRecord> findByLocalPath(Path localPath) {
         String sql = "SELECT local_path, remote_id, sha256, status, last_synced, source FROM received_state WHERE local_path = ?";
         try (Connection connection = openConnection();

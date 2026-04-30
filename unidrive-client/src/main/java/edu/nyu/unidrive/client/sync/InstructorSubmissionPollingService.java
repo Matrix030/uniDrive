@@ -82,7 +82,7 @@ public final class InstructorSubmissionPollingService implements SyncServiceHand
     }
 
     private void pollAssignment(CoursePath coursePath, Path assignmentDir) throws IOException {
-        Path submissionsDir = assignmentDir.resolve(CoursePath.SUBMISSIONS_DIR);
+        Path submissionsDir = assignmentDir.resolve(CoursePath.INSTRUCTOR_SUBMISSIONS_DIR);
         Files.createDirectories(submissionsDir);
 
         for (SubmissionSummaryResponse submission : submissionApiClient.listSubmissions(coursePath)) {

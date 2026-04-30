@@ -132,10 +132,27 @@ class AssignmentControllerTest {
         byte[] content = "assignment file".getBytes();
         publishAssignment("hw1", "Assignment 1", "Assignment1.txt", content, TERM, COURSE);
 
-        mockMvc.perform(get("/api/v1/assignments/{assignmentId}/download", "hw1"))
+        mockMvc.perform(get("/api/v1/assignments/{assignmentId}/download", "hw1").param("fileName", "Assignment1.txt"))
             .andExpect(status().isOk())
             .andExpect(header().string("Content-Disposition", startsWith("attachment; filename=\"Assignment1.txt\"")))
             .andExpect(content().bytes(content));
+    }
+
+    @Test
+    void publishAssignmentAcceptsMultipleFilesUnderSameAssignmentId() throws Exception {
+        publishAssignment("hw1", "Assignment 1", "spec.md", "spec".getBytes(), TERM, COURSE);
+        publishAssignment("hw1", "Assignment 1", "starter.zip", "starter".getBytes(), TERM, COURSE);
+
+        mockMvc.perform(get("/api/v1/assignments").param("term", TERM).param("course", COURSE))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.length()").value(2));
+
+        mockMvc.perform(get("/api/v1/assignments/{assignmentId}/download", "hw1").param("fileName", "spec.md"))
+            .andExpect(status().isOk())
+            .andExpect(content().bytes("spec".getBytes()));
+        mockMvc.perform(get("/api/v1/assignments/{assignmentId}/download", "hw1").param("fileName", "starter.zip"))
+            .andExpect(status().isOk())
+            .andExpect(content().bytes("starter".getBytes()));
     }
 
     private void publishAssignment(
