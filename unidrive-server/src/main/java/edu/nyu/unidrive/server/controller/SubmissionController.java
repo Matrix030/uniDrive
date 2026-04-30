@@ -44,15 +44,19 @@ public class SubmissionController {
 
     @GetMapping("/api/v1/submissions")
     public ResponseEntity<ApiResponse<List<SubmissionSummaryResponse>>> listSubmissions(
+        @RequestParam("term") String term,
+        @RequestParam("course") String course,
         @RequestParam("assignmentId") String assignmentId,
         @RequestParam(value = "studentId", required = false) String studentId
     ) {
-        List<SubmissionSummaryResponse> submissions = submissionService.listSubmissions(assignmentId, studentId);
+        List<SubmissionSummaryResponse> submissions = submissionService.listSubmissions(term, course, assignmentId, studentId);
         return ResponseEntity.ok(ApiResponse.ok(submissions, "Submissions retrieved successfully."));
     }
 
-    @PostMapping("/api/v1/submissions/{assignmentId}")
+    @PostMapping("/api/v1/submissions/{term}/{course}/{assignmentId}")
     public ResponseEntity<ApiResponse<?>> uploadSubmission(
+        @PathVariable("term") String term,
+        @PathVariable("course") String course,
         @PathVariable("assignmentId") String assignmentId,
         @RequestParam("studentId") String studentId,
         @RequestHeader("X-File-Sha256") String providedSha256,
@@ -60,6 +64,8 @@ public class SubmissionController {
     ) throws Exception {
         try {
             SubmissionUploadResponse response = submissionService.storeSubmission(
+                term,
+                course,
                 assignmentId,
                 studentId,
                 providedSha256,

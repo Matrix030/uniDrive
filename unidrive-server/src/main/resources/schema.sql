@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS assignments (
     id TEXT PRIMARY KEY,
+    term TEXT,
+    course TEXT,
     title TEXT,
     published_at INTEGER,
     file_path TEXT,
@@ -14,6 +16,8 @@ CREATE TABLE IF NOT EXISTS assignments (
 
 CREATE TABLE IF NOT EXISTS submissions (
     id TEXT PRIMARY KEY,
+    term TEXT,
+    course TEXT,
     assignment_id TEXT,
     student_id TEXT,
     file_path TEXT,

@@ -120,7 +120,7 @@ class FeedbackControllerTest {
         MockMultipartFile file = new MockMultipartFile("file", fileName, MediaType.TEXT_PLAIN_VALUE, content);
 
         mockMvc.perform(
-                multipart("/api/v1/submissions/{assignmentId}", assignmentId)
+                multipart("/api/v1/submissions/{term}/{course}/{assignmentId}", "fall2026", "daa", assignmentId)
                     .file(file)
                     .param("studentId", studentId)
                     .header("X-File-Sha256", sha256)

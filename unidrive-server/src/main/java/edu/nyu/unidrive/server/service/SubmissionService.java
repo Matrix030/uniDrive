@@ -30,6 +30,8 @@ public class SubmissionService {
     }
 
     public SubmissionUploadResponse storeSubmission(
+        String term,
+        String course,
         String assignmentId,
         String studentId,
         String providedSha256,
@@ -45,15 +47,19 @@ public class SubmissionService {
         String submissionId = UUID.randomUUID().toString();
         String fileName = sanitizeFileName(file.getOriginalFilename());
         Path destination = storageRoot
-            .resolve("submissions")
+            .resolve(term)
+            .resolve(course)
             .resolve(assignmentId)
-            .resolve(studentId)
+            .resolve("submissions")
+            .resolve("student_" + studentId)
             .resolve(submissionId + "-" + fileName);
 
         Files.createDirectories(destination.getParent());
         Files.write(destination, content);
         submissionRepository.save(
             submissionId,
+            term,
+            course,
             assignmentId,
             studentId,
             destination.toString(),
@@ -64,6 +70,8 @@ public class SubmissionService {
 
         return new SubmissionUploadResponse(
             submissionId,
+            term,
+            course,
             assignmentId,
             studentId,
             fileName,
@@ -71,8 +79,13 @@ public class SubmissionService {
         );
     }
 
-    public List<SubmissionSummaryResponse> listSubmissions(String assignmentId, String studentId) {
-        return submissionRepository.findByFilters(assignmentId, studentId);
+    public List<SubmissionSummaryResponse> listSubmissions(
+        String term,
+        String course,
+        String assignmentId,
+        String studentId
+    ) {
+        return submissionRepository.findByAssignment(term, course, assignmentId, studentId);
     }
 
     public DownloadedSubmission loadSubmission(String submissionId) throws IOException {

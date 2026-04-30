@@ -24,18 +24,26 @@ public class AssignmentController {
         this.assignmentService = assignmentService;
     }
 
-    @PostMapping("/api/v1/instructor/assignments")
+    @PostMapping("/api/v1/instructor/assignments/{term}/{course}/{assignmentId}")
     public ResponseEntity<ApiResponse<AssignmentSummaryResponse>> publishAssignment(
+        @PathVariable("term") String term,
+        @PathVariable("course") String course,
+        @PathVariable("assignmentId") String assignmentId,
         @RequestParam("title") String title,
         @RequestParam("file") MultipartFile file
     ) throws Exception {
-        AssignmentSummaryResponse response = assignmentService.publishAssignment(title, file);
+        AssignmentSummaryResponse response = assignmentService.publishAssignment(term, course, assignmentId, title, file);
         return ResponseEntity.ok(ApiResponse.ok(response, "Assignment published successfully."));
     }
 
     @GetMapping("/api/v1/assignments")
-    public ResponseEntity<ApiResponse<List<AssignmentSummaryResponse>>> listAssignments() {
-        return ResponseEntity.ok(ApiResponse.ok(assignmentService.listAssignments(), "Assignments retrieved successfully."));
+    public ResponseEntity<ApiResponse<List<AssignmentSummaryResponse>>> listAssignments(
+        @RequestParam("term") String term,
+        @RequestParam("course") String course
+    ) {
+        return ResponseEntity.ok(
+            ApiResponse.ok(assignmentService.listAssignments(term, course), "Assignments retrieved successfully.")
+        );
     }
 
     @GetMapping("/api/v1/assignments/{assignmentId}/download")

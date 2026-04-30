@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,22 +26,40 @@ public class AssignmentService {
         this.assignmentRepository = assignmentRepository;
     }
 
-    public AssignmentSummaryResponse publishAssignment(String title, MultipartFile file) throws IOException {
+    public AssignmentSummaryResponse publishAssignment(
+        String term,
+        String course,
+        String assignmentId,
+        String title,
+        MultipartFile file
+    ) throws IOException {
         byte[] content = file.getBytes();
         String sha256 = FileHasher.sha256Hex(content);
-        String assignmentId = UUID.randomUUID().toString();
         String fileName = sanitizeFileName(file.getOriginalFilename());
-        Path destination = storageRoot.resolve("assignments").resolve(assignmentId + "-" + fileName);
+        Path destination = storageRoot
+            .resolve(term)
+            .resolve(course)
+            .resolve(assignmentId)
+            .resolve("publish")
+            .resolve(fileName);
 
         Files.createDirectories(destination.getParent());
         Files.write(destination, content);
-        assignmentRepository.save(assignmentId, title, System.currentTimeMillis(), destination.toString(), sha256);
+        assignmentRepository.save(
+            assignmentId,
+            term,
+            course,
+            title,
+            System.currentTimeMillis(),
+            destination.toString(),
+            sha256
+        );
 
-        return new AssignmentSummaryResponse(assignmentId, title, fileName, sha256);
+        return new AssignmentSummaryResponse(assignmentId, term, course, title, fileName, sha256);
     }
 
-    public List<AssignmentSummaryResponse> listAssignments() {
-        return assignmentRepository.findAll();
+    public List<AssignmentSummaryResponse> listAssignments(String term, String course) {
+        return assignmentRepository.findByTermAndCourse(term, course);
     }
 
     public DownloadedAssignment loadAssignment(String assignmentId) throws IOException {

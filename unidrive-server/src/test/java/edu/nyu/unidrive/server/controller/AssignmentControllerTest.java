@@ -1,6 +1,5 @@
 package edu.nyu.unidrive.server.controller;
 
-import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -40,6 +39,8 @@ import org.springframework.util.FileSystemUtils;
 class AssignmentControllerTest {
 
     private static final Path STORAGE_ROOT = Path.of("target/test-assignment-storage");
+    private static final String TERM = "fall2026";
+    private static final String COURSE = "daa";
 
     @Autowired
     private MockMvc mockMvc;
@@ -58,31 +59,39 @@ class AssignmentControllerTest {
     void publishAssignmentStoresFileAndMetadata() throws Exception {
         byte[] content = "assignment instructions".getBytes();
         String sha256 = FileHasher.sha256Hex(content);
+        String assignmentId = "hw1";
         MockMultipartFile file = new MockMultipartFile("file", "Assignment1.txt", MediaType.TEXT_PLAIN_VALUE, content);
 
         mockMvc.perform(
-                multipart("/api/v1/instructor/assignments")
+                multipart("/api/v1/instructor/assignments/{term}/{course}/{assignmentId}", TERM, COURSE, assignmentId)
                     .file(file)
                     .param("title", "Assignment 1")
             )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("ok"))
             .andExpect(jsonPath("$.message").value("Assignment published successfully."))
-            .andExpect(jsonPath("$.data.assignmentId").value(matchesPattern("[0-9a-f\\-]{36}")))
+            .andExpect(jsonPath("$.data.assignmentId").value(assignmentId))
+            .andExpect(jsonPath("$.data.term").value(TERM))
+            .andExpect(jsonPath("$.data.course").value(COURSE))
             .andExpect(jsonPath("$.data.title").value("Assignment 1"))
             .andExpect(jsonPath("$.data.fileName").value("Assignment1.txt"))
             .andExpect(jsonPath("$.data.sha256").value(sha256));
 
         Map<String, Object> saved = jdbcTemplate.queryForMap(
-            "SELECT title, hash FROM assignments WHERE title = ?",
-            "Assignment 1"
+            "SELECT term, course, title, hash FROM assignments WHERE id = ?",
+            assignmentId
         );
+        org.junit.jupiter.api.Assertions.assertEquals(TERM, saved.get("term"));
+        org.junit.jupiter.api.Assertions.assertEquals(COURSE, saved.get("course"));
         org.junit.jupiter.api.Assertions.assertEquals("Assignment 1", saved.get("title"));
         org.junit.jupiter.api.Assertions.assertEquals(sha256, saved.get("hash"));
 
         try (Stream<Path> storedFiles = Files.walk(STORAGE_ROOT)) {
             org.junit.jupiter.api.Assertions.assertEquals(1, storedFiles.filter(Files::isRegularFile).count());
         }
+
+        Path expected = STORAGE_ROOT.resolve(TERM).resolve(COURSE).resolve(assignmentId).resolve("publish").resolve("Assignment1.txt");
+        org.junit.jupiter.api.Assertions.assertTrue(Files.exists(expected), "expected file at " + expected);
     }
 
     @Test
@@ -95,7 +104,7 @@ class AssignmentControllerTest {
         MockMultipartFile file = new MockMultipartFile("file", "BigAssignment.txt", MediaType.APPLICATION_OCTET_STREAM_VALUE, content);
 
         mockMvc.perform(
-                multipart("/api/v1/instructor/assignments")
+                multipart("/api/v1/instructor/assignments/{term}/{course}/{assignmentId}", TERM, COURSE, "big-1")
                     .file(file)
                     .param("title", "Big Assignment")
             )
@@ -106,11 +115,12 @@ class AssignmentControllerTest {
     }
 
     @Test
-    void listAssignmentsReturnsPublishedAssignments() throws Exception {
-        publishAssignment("Assignment 1", "Assignment1.txt", "one".getBytes());
-        publishAssignment("Assignment 2", "Assignment2.txt", "two".getBytes());
+    void listAssignmentsReturnsPublishedAssignmentsForTermAndCourse() throws Exception {
+        publishAssignment("hw1", "Assignment 1", "Assignment1.txt", "one".getBytes(), TERM, COURSE);
+        publishAssignment("hw2", "Assignment 2", "Assignment2.txt", "two".getBytes(), TERM, COURSE);
+        publishAssignment("hw3", "Java Hello", "Hello.java", "three".getBytes(), TERM, "java");
 
-        mockMvc.perform(get("/api/v1/assignments"))
+        mockMvc.perform(get("/api/v1/assignments").param("term", TERM).param("course", COURSE))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("ok"))
             .andExpect(jsonPath("$.message").value("Assignments retrieved successfully."))
@@ -120,23 +130,25 @@ class AssignmentControllerTest {
     @Test
     void downloadAssignmentReturnsStoredFileContents() throws Exception {
         byte[] content = "assignment file".getBytes();
-        publishAssignment("Assignment 1", "Assignment1.txt", content);
-        String assignmentId = jdbcTemplate.queryForObject(
-            "SELECT id FROM assignments WHERE title = ?",
-            String.class,
-            "Assignment 1"
-        );
+        publishAssignment("hw1", "Assignment 1", "Assignment1.txt", content, TERM, COURSE);
 
-        mockMvc.perform(get("/api/v1/assignments/{assignmentId}/download", assignmentId))
+        mockMvc.perform(get("/api/v1/assignments/{assignmentId}/download", "hw1"))
             .andExpect(status().isOk())
             .andExpect(header().string("Content-Disposition", startsWith("attachment; filename=\"Assignment1.txt\"")))
             .andExpect(content().bytes(content));
     }
 
-    private void publishAssignment(String title, String fileName, byte[] content) throws Exception {
+    private void publishAssignment(
+        String assignmentId,
+        String title,
+        String fileName,
+        byte[] content,
+        String term,
+        String course
+    ) throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", fileName, MediaType.TEXT_PLAIN_VALUE, content);
         mockMvc.perform(
-                multipart("/api/v1/instructor/assignments")
+                multipart("/api/v1/instructor/assignments/{term}/{course}/{assignmentId}", term, course, assignmentId)
                     .file(file)
                     .param("title", title)
             )

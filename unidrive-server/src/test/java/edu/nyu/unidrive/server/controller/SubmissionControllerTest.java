@@ -36,6 +36,8 @@ import org.springframework.util.FileSystemUtils;
 class SubmissionControllerTest {
 
     private static final Path STORAGE_ROOT = Path.of("target/test-storage");
+    private static final String TERM = "fall2026";
+    private static final String COURSE = "daa";
 
     @Autowired
     private MockMvc mockMvc;
@@ -64,7 +66,7 @@ class SubmissionControllerTest {
         );
 
         mockMvc.perform(
-                multipart("/api/v1/submissions/{assignmentId}", "assignment-1")
+                multipart("/api/v1/submissions/{term}/{course}/{assignmentId}", TERM, COURSE, "assignment-1")
                     .file(file)
                     .param("studentId", "rvg9395")
                     .header("X-File-Sha256", sha256)
@@ -73,6 +75,8 @@ class SubmissionControllerTest {
             .andExpect(jsonPath("$.status").value("ok"))
             .andExpect(jsonPath("$.message").value("Submission uploaded successfully."))
             .andExpect(jsonPath("$.data.submissionId").value(matchesPattern("[0-9a-f\\-]{36}")))
+            .andExpect(jsonPath("$.data.term").value(TERM))
+            .andExpect(jsonPath("$.data.course").value(COURSE))
             .andExpect(jsonPath("$.data.assignmentId").value("assignment-1"))
             .andExpect(jsonPath("$.data.studentId").value("rvg9395"))
             .andExpect(jsonPath("$.data.fileName").value("Hello.java"))
@@ -88,13 +92,18 @@ class SubmissionControllerTest {
         org.junit.jupiter.api.Assertions.assertEquals(beforeCount + 1, afterCount);
 
         Map<String, Object> savedSubmission = jdbcTemplate.queryForMap(
-            "SELECT assignment_id, student_id, hash, status FROM submissions WHERE hash = ?",
+            "SELECT term, course, assignment_id, student_id, hash, status FROM submissions WHERE hash = ?",
             sha256
         );
+        org.junit.jupiter.api.Assertions.assertEquals(TERM, savedSubmission.get("term"));
+        org.junit.jupiter.api.Assertions.assertEquals(COURSE, savedSubmission.get("course"));
         org.junit.jupiter.api.Assertions.assertEquals("assignment-1", savedSubmission.get("assignment_id"));
         org.junit.jupiter.api.Assertions.assertEquals("rvg9395", savedSubmission.get("student_id"));
         org.junit.jupiter.api.Assertions.assertEquals(sha256, savedSubmission.get("hash"));
         org.junit.jupiter.api.Assertions.assertEquals("SYNCED", savedSubmission.get("status"));
+
+        Path studentDir = STORAGE_ROOT.resolve(TERM).resolve(COURSE).resolve("assignment-1").resolve("submissions").resolve("student_rvg9395");
+        org.junit.jupiter.api.Assertions.assertTrue(Files.isDirectory(studentDir), "expected student dir at " + studentDir);
     }
 
     @Test
@@ -110,7 +119,7 @@ class SubmissionControllerTest {
         );
 
         mockMvc.perform(
-                multipart("/api/v1/submissions/{assignmentId}", "assignment-1")
+                multipart("/api/v1/submissions/{term}/{course}/{assignmentId}", TERM, COURSE, "assignment-1")
                     .file(file)
                     .param("studentId", "rvg9395")
                     .header("X-File-Sha256", "not-the-real-hash")
@@ -131,14 +140,21 @@ class SubmissionControllerTest {
 
     @Test
     void listSubmissionsReturnsOnlyRowsForRequestedAssignment() throws Exception {
-        uploadSubmission("assignment-1", "rvg9395", "First.java", "class First { }".getBytes());
-        uploadSubmission("assignment-2", "ow2130", "Second.java", "class Second { }".getBytes());
+        uploadSubmission(TERM, COURSE, "assignment-1", "rvg9395", "First.java", "class First { }".getBytes());
+        uploadSubmission(TERM, COURSE, "assignment-2", "ow2130", "Second.java", "class Second { }".getBytes());
 
-        mockMvc.perform(get("/api/v1/submissions").param("assignmentId", "assignment-1"))
+        mockMvc.perform(
+                get("/api/v1/submissions")
+                    .param("term", TERM)
+                    .param("course", COURSE)
+                    .param("assignmentId", "assignment-1")
+            )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("ok"))
             .andExpect(jsonPath("$.message").value("Submissions retrieved successfully."))
             .andExpect(jsonPath("$.data.length()").value(1))
+            .andExpect(jsonPath("$.data[0].term").value(TERM))
+            .andExpect(jsonPath("$.data[0].course").value(COURSE))
             .andExpect(jsonPath("$.data[0].assignmentId").value("assignment-1"))
             .andExpect(jsonPath("$.data[0].studentId").value("rvg9395"))
             .andExpect(jsonPath("$.data[0].fileName").value("First.java"))
@@ -147,11 +163,13 @@ class SubmissionControllerTest {
 
     @Test
     void listSubmissionsCanFilterByAssignmentAndStudent() throws Exception {
-        uploadSubmission("assignment-1", "rvg9395", "Alpha.java", "class Alpha { }".getBytes());
-        uploadSubmission("assignment-1", "ow2130", "Beta.java", "class Beta { }".getBytes());
+        uploadSubmission(TERM, COURSE, "assignment-1", "rvg9395", "Alpha.java", "class Alpha { }".getBytes());
+        uploadSubmission(TERM, COURSE, "assignment-1", "ow2130", "Beta.java", "class Beta { }".getBytes());
 
         mockMvc.perform(
                 get("/api/v1/submissions")
+                    .param("term", TERM)
+                    .param("course", COURSE)
                     .param("assignmentId", "assignment-1")
                     .param("studentId", "rvg9395")
             )
@@ -168,7 +186,7 @@ class SubmissionControllerTest {
     @Test
     void downloadSubmissionReturnsStoredFileContents() throws Exception {
         byte[] contentBytes = "class DownloadMe { }".getBytes();
-        uploadSubmission("assignment-1", "rvg9395", "DownloadMe.java", contentBytes);
+        uploadSubmission(TERM, COURSE, "assignment-1", "rvg9395", "DownloadMe.java", contentBytes);
 
         String submissionId = jdbcTemplate.queryForObject(
             "SELECT id FROM submissions WHERE assignment_id = ? AND student_id = ? ORDER BY submitted_at DESC LIMIT 1",
@@ -189,7 +207,14 @@ class SubmissionControllerTest {
             .andExpect(status().isNotFound());
     }
 
-    private void uploadSubmission(String assignmentId, String studentId, String fileName, byte[] content) throws Exception {
+    private void uploadSubmission(
+        String term,
+        String course,
+        String assignmentId,
+        String studentId,
+        String fileName,
+        byte[] content
+    ) throws Exception {
         String sha256 = FileHasher.sha256Hex(content);
         MockMultipartFile file = new MockMultipartFile(
             "file",
@@ -199,7 +224,7 @@ class SubmissionControllerTest {
         );
 
         mockMvc.perform(
-                multipart("/api/v1/submissions/{assignmentId}", assignmentId)
+                multipart("/api/v1/submissions/{term}/{course}/{assignmentId}", term, course, assignmentId)
                     .file(file)
                     .param("studentId", studentId)
                     .header("X-File-Sha256", sha256)
