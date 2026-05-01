@@ -37,3 +37,14 @@ demo-workspace/
 
 # Local tool state
 .opencode/
+.obsidian/
+
+# Notes
+Issues.md
+newplan.md
+
+# Graphify outputs
+graphify-out/
+AGENTS.md
+university_drive_project_proposal.md
+.claude/
