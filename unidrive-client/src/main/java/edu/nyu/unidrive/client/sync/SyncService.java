@@ -62,11 +62,20 @@ public final class SyncService implements SyncServiceHandle {
 
     public void processOnce() {
         for (SubmissionFileEvent event : eventSource.pollEvents(pollTimeout)) {
+            if (event.type() == SubmissionFileEventType.DELETED) {
+                uploadService.deleteSubmission(event.path());
+                continue;
+            }
             syncStateService.recordPendingEvent(event);
             submitUploadIfAllowed(event.path(), false);
         }
 
+        reconcileService.reconcileExistingSubmissions(workspaceRoot);
         for (SyncStateRecord row : syncStateRepository.findAll()) {
+            if (!Files.exists(row.localPath())) {
+                uploadService.deleteSubmission(row.localPath());
+                continue;
+            }
             if (row.status() != SyncStatus.PENDING && row.status() != SyncStatus.FAILED) {
                 continue;
             }

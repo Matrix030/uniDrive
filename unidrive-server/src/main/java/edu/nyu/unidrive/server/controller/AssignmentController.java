@@ -8,6 +8,7 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -57,6 +58,19 @@ public class AssignmentController {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + download.fileName() + "\"")
                 .body(new ByteArrayResource(download.content()));
+        } catch (AssignmentService.AssignmentNotFoundException exception) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @DeleteMapping("/api/v1/instructor/assignments/{assignmentId}")
+    public ResponseEntity<ApiResponse<Void>> deleteAssignment(
+        @PathVariable("assignmentId") String assignmentId,
+        @RequestParam("fileName") String fileName
+    ) throws Exception {
+        try {
+            assignmentService.deleteAssignment(assignmentId, fileName);
+            return ResponseEntity.ok(ApiResponse.ok(null, "Assignment deleted successfully."));
         } catch (AssignmentService.AssignmentNotFoundException exception) {
             return ResponseEntity.notFound().build();
         }

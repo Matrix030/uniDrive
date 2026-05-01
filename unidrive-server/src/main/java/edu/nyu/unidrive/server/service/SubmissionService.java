@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -46,6 +48,7 @@ public class SubmissionService {
 
         String submissionId = UUID.randomUUID().toString();
         String fileName = sanitizeFileName(file.getOriginalFilename());
+        deleteExistingSubmissionsForFile(term, course, assignmentId, studentId, fileName);
         Path destination = storageRoot
             .resolve(term)
             .resolve(course)
@@ -85,7 +88,11 @@ public class SubmissionService {
         String assignmentId,
         String studentId
     ) {
-        return submissionRepository.findByAssignment(term, course, assignmentId, studentId);
+        Map<String, SubmissionSummaryResponse> latestByStudentFile = new LinkedHashMap<>();
+        for (SubmissionSummaryResponse submission : submissionRepository.findByAssignment(term, course, assignmentId, studentId)) {
+            latestByStudentFile.putIfAbsent(submission.getStudentId() + "/" + submission.getFileName(), submission);
+        }
+        return List.copyOf(latestByStudentFile.values());
     }
 
     public DownloadedSubmission loadSubmission(String submissionId) throws IOException {
@@ -95,6 +102,27 @@ public class SubmissionService {
         Path filePath = Path.of(storedSubmission.filePath());
         byte[] content = Files.readAllBytes(filePath);
         return new DownloadedSubmission(storedSubmission.originalFileName(), content);
+    }
+
+    public void deleteSubmission(String submissionId) throws IOException {
+        StoredSubmission storedSubmission = submissionRepository.findStoredSubmissionById(submissionId)
+            .orElseThrow(SubmissionNotFoundException::new);
+        Files.deleteIfExists(Path.of(storedSubmission.filePath()));
+        submissionRepository.deleteById(submissionId);
+    }
+
+    private void deleteExistingSubmissionsForFile(
+        String term,
+        String course,
+        String assignmentId,
+        String studentId,
+        String fileName
+    ) throws IOException {
+        for (SubmissionSummaryResponse existing : submissionRepository.findByAssignment(term, course, assignmentId, studentId)) {
+            if (fileName.equals(existing.getFileName())) {
+                deleteSubmission(existing.getSubmissionId());
+            }
+        }
     }
 
     private String sanitizeFileName(String originalFileName) {

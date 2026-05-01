@@ -73,6 +73,17 @@ public final class SyncStateRepository {
         }
     }
 
+    public void deleteByLocalPath(Path localPath) {
+        String sql = "DELETE FROM sync_state WHERE local_path = ?";
+        try (Connection connection = openConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, localPath.toString());
+            statement.executeUpdate();
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Failed to delete sync state.", exception);
+        }
+    }
+
     public List<SyncStateRecord> findAll() {
         String sql = "SELECT local_path, remote_id, sha256, status, last_synced FROM sync_state ORDER BY local_path ASC";
 

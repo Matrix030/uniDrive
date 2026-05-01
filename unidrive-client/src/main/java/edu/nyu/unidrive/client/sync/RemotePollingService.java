@@ -42,7 +42,11 @@ public final class RemotePollingService implements SyncServiceHandle {
 
     public void processOnce() {
         for (Course course : courseRegistry.courses()) {
-            assignmentSyncService.syncAssignmentsForCourse(courseRegistry.currentTerm(), course.slug(), workspaceRoot);
+            try {
+                assignmentSyncService.syncAssignmentsForCourse(courseRegistry.currentTerm(), course.slug(), workspaceRoot);
+            } catch (RuntimeException exception) {
+                System.err.println("Assignment sync failed for " + course.slug() + ": " + exception);
+            }
         }
     }
 
@@ -63,7 +67,11 @@ public final class RemotePollingService implements SyncServiceHandle {
         receivedReconcileService.reconcileWorkspaceRoot(workspaceRoot);
 
         while (!Thread.currentThread().isInterrupted()) {
-            processOnce();
+            try {
+                processOnce();
+            } catch (RuntimeException exception) {
+                System.err.println("Remote polling loop error: " + exception);
+            }
             try {
                 Thread.sleep(pollInterval.toMillis());
             } catch (InterruptedException exception) {

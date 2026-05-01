@@ -91,4 +91,25 @@ public final class SubmissionUploadService {
             return SyncStatus.FAILED;
         }
     }
+
+    public void deleteSubmission(Path localPath) {
+        SyncStateRecord existingRecord = syncStateRepository.findByLocalPath(localPath).orElse(null);
+        if (existingRecord == null) {
+            return;
+        }
+        try {
+            if (existingRecord.remoteId() != null && !existingRecord.remoteId().isBlank()) {
+                submissionApiClient.deleteSubmission(existingRecord.remoteId());
+            }
+            syncStateRepository.deleteByLocalPath(localPath);
+        } catch (IOException | RuntimeException exception) {
+            syncStateRepository.save(new SyncStateRecord(
+                localPath,
+                existingRecord.remoteId(),
+                existingRecord.sha256(),
+                SyncStatus.FAILED,
+                existingRecord.lastSynced()
+            ));
+        }
+    }
 }

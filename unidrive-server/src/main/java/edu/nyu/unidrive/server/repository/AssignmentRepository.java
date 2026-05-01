@@ -85,6 +85,10 @@ public class AssignmentRepository {
         return assignments.stream().findFirst();
     }
 
+    public void deleteByIdAndFileName(String assignmentId, String fileName) {
+        jdbcTemplate.update("DELETE FROM assignments WHERE id = ? AND file_name = ?", assignmentId, fileName);
+    }
+
     public record StoredAssignment(
         String id,
         String fileName,

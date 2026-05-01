@@ -20,6 +20,10 @@ public final class PublishUploadService {
         return assignmentApiClient.publishAssignment(coursePath, title, file);
     }
 
+    public void delete(CoursePath coursePath, Path file) throws IOException {
+        assignmentApiClient.deleteAssignment(coursePath.assignmentId(), file.getFileName().toString());
+    }
+
     private String stripExtension(String fileName) {
         int dot = fileName.lastIndexOf('.');
         if (dot <= 0) {

@@ -15,7 +15,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -84,6 +86,7 @@ public final class InstructorSubmissionPollingService implements SyncServiceHand
     private void pollAssignment(CoursePath coursePath, Path assignmentDir) throws IOException {
         Path submissionsDir = assignmentDir.resolve(CoursePath.INSTRUCTOR_SUBMISSIONS_DIR);
         Files.createDirectories(submissionsDir);
+        Set<Path> expectedFiles = new HashSet<>();
 
         for (SubmissionSummaryResponse submission : submissionApiClient.listSubmissions(coursePath)) {
             latestSubmissionByStudent.put(submission.getStudentId(), submission.getSubmissionId());
@@ -92,6 +95,7 @@ public final class InstructorSubmissionPollingService implements SyncServiceHand
             Files.createDirectories(studentDir);
 
             Path destination = studentDir.resolve(submission.getFileName());
+            expectedFiles.add(destination);
             if (Files.exists(destination) && FileHasher.sha256Hex(destination).equals(submission.getSha256())) {
                 receivedStateRepository.save(new ReceivedStateRecord(
                     destination,
@@ -124,6 +128,18 @@ public final class InstructorSubmissionPollingService implements SyncServiceHand
                 System.currentTimeMillis(),
                 ReceivedReconcileService.SOURCE_INSTRUCTOR_SUBMISSIONS
             ));
+        }
+        removeStaleSubmissionFiles(submissionsDir, expectedFiles);
+    }
+
+    private void removeStaleSubmissionFiles(Path submissionsDir, Set<Path> expectedFiles) throws IOException {
+        try (Stream<Path> files = Files.walk(submissionsDir)) {
+            for (Path file : files.filter(Files::isRegularFile).toList()) {
+                if (!expectedFiles.contains(file)) {
+                    Files.delete(file);
+                    receivedStateRepository.deleteByLocalPath(file);
+                }
+            }
         }
     }
 

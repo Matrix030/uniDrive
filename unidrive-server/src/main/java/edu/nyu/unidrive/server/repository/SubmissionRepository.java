@@ -38,6 +38,15 @@ public class SubmissionRepository {
             """
             INSERT INTO submissions (id, term, course, assignment_id, student_id, file_path, hash, submitted_at, status)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                term = excluded.term,
+                course = excluded.course,
+                assignment_id = excluded.assignment_id,
+                student_id = excluded.student_id,
+                file_path = excluded.file_path,
+                hash = excluded.hash,
+                submitted_at = excluded.submitted_at,
+                status = excluded.status
             """,
             submissionId,
             term,
@@ -86,6 +95,10 @@ public class SubmissionRepository {
             submissionId
         );
         return submissions.stream().findFirst();
+    }
+
+    public void deleteById(String submissionId) {
+        jdbcTemplate.update("DELETE FROM submissions WHERE id = ?", submissionId);
     }
 
     public Optional<StoredSubmissionDetails> findSubmissionDetailsById(String submissionId) {

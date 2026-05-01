@@ -15,4 +15,6 @@ public interface SubmissionApiClient {
     List<SubmissionSummaryResponse> listSubmissions(CoursePath coursePath) throws IOException;
 
     DownloadedFile downloadSubmission(String submissionId) throws IOException;
+
+    void deleteSubmission(String submissionId) throws IOException;
 }

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.nyu.unidrive.common.dto.AssignmentSummaryResponse;
 import edu.nyu.unidrive.common.workspace.CoursePath;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -14,8 +15,11 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.client.RestTemplate;
 
 public final class RestAssignmentApiClient implements AssignmentApiClient {
@@ -50,13 +54,22 @@ public final class RestAssignmentApiClient implements AssignmentApiClient {
     }
 
     @Override
-    public DownloadedFile downloadAssignment(String assignmentId, String fileName) {
-        String encodedFileName = java.net.URLEncoder.encode(fileName, java.nio.charset.StandardCharsets.UTF_8);
-        ResponseEntity<byte[]> response = restTemplate.getForEntity(
-            baseUrl + "/api/v1/assignments/" + assignmentId + "/download?fileName=" + encodedFileName,
-            byte[].class
-        );
-        return new DownloadedFile(extractFileName(response), response.getBody() == null ? new byte[0] : response.getBody());
+    public DownloadedFile downloadAssignment(String assignmentId, String fileName) throws IOException {
+        try {
+            URI uri = UriComponentsBuilder.fromUriString(baseUrl)
+                .pathSegment("api", "v1", "assignments", assignmentId, "download")
+                .queryParam("fileName", fileName)
+                .build()
+                .encode()
+                .toUri();
+            ResponseEntity<byte[]> response = restTemplate.getForEntity(
+                uri,
+                byte[].class
+            );
+            return new DownloadedFile(extractFileName(response), response.getBody() == null ? new byte[0] : response.getBody());
+        } catch (RestClientException exception) {
+            throw new IOException("Failed to download assignment " + assignmentId + "/" + fileName, exception);
+        }
     }
 
     @Override
@@ -85,6 +98,22 @@ public final class RestAssignmentApiClient implements AssignmentApiClient {
             dataNode.path("fileName").asText(),
             dataNode.path("sha256").asText()
         );
+    }
+
+    @Override
+    public void deleteAssignment(String assignmentId, String fileName) throws IOException {
+        try {
+            URI uri = UriComponentsBuilder.fromUriString(baseUrl)
+                .pathSegment("api", "v1", "instructor", "assignments", assignmentId)
+                .queryParam("fileName", fileName)
+                .build()
+                .encode()
+                .toUri();
+            restTemplate.delete(uri);
+        } catch (HttpClientErrorException.NotFound ignored) {
+        } catch (RestClientException exception) {
+            throw new IOException("Failed to delete assignment " + assignmentId + "/" + fileName, exception);
+        }
     }
 
     private static final class NamedByteArrayResource extends ByteArrayResource {

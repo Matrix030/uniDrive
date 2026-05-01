@@ -12,9 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.HashSet;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Stream;
 
 public final class PublishSyncService implements SyncServiceHandle {
@@ -24,7 +22,6 @@ public final class PublishSyncService implements SyncServiceHandle {
     private final SyncStateRepository syncStateRepository;
     private final Path workspaceRoot;
     private final Duration pollTimeout;
-    private final Set<Path> publishedFiles = new HashSet<>();
     private Thread workerThread;
 
     public PublishSyncService(
@@ -53,14 +50,18 @@ public final class PublishSyncService implements SyncServiceHandle {
 
     public void processOnce() {
         for (SubmissionFileEvent event : watcher.pollEvents(pollTimeout)) {
-            tryPublish(event.path());
+            if (event.type() == SubmissionFileEventType.DELETED) {
+                tryDelete(event.path());
+            } else {
+                tryPublish(event.path());
+            }
         }
+
+        reconcileDeletedPublishFiles();
+        reconcileExistingPublishFiles();
     }
 
     private void tryPublish(Path path) {
-        if (publishedFiles.contains(path)) {
-            return;
-        }
         if (isIgnoredPublishFile(path)) {
             return;
         }
@@ -74,18 +75,7 @@ public final class PublishSyncService implements SyncServiceHandle {
         }
         CoursePath coursePath = parsed.get().coursePath();
 
-        syncStateRepository.findByLocalPath(path).ifPresent(existing -> {
-            if (existing.status() == SyncStatus.SYNCED && existing.sha256() != null) {
-                try {
-                    String currentHash = FileHasher.sha256Hex(path);
-                    if (existing.sha256().equals(currentHash)) {
-                        publishedFiles.add(path);
-                    }
-                } catch (IOException ignored) {
-                }
-            }
-        });
-        if (publishedFiles.contains(path)) {
+        if (isAlreadySynced(path)) {
             return;
         }
 
@@ -99,9 +89,29 @@ public final class PublishSyncService implements SyncServiceHandle {
                 SyncStatus.SYNCED,
                 System.currentTimeMillis()
             ));
-            publishedFiles.add(path);
         } catch (Exception exception) {
             System.err.println("Publish failed for " + path + ": " + exception);
+            syncStateRepository.save(new SyncStateRecord(path, null, null, SyncStatus.FAILED, 0L));
+        }
+    }
+
+    private void tryDelete(Path path) {
+        SyncStateRecord existing = syncStateRepository.findByLocalPath(path).orElse(null);
+        if (existing == null || existing.remoteId() == null || existing.remoteId().isBlank()) {
+            syncStateRepository.deleteByLocalPath(path);
+            return;
+        }
+        Optional<ParsedLocation> parsed = CoursePath.parseFromWorkspace(workspaceRoot, path);
+        if (parsed.isEmpty() || parsed.get().leaf() != Leaf.PUBLISH) {
+            syncStateRepository.deleteByLocalPath(path);
+            return;
+        }
+
+        try {
+            uploadService.delete(parsed.get().coursePath(), path);
+            syncStateRepository.deleteByLocalPath(path);
+        } catch (Exception exception) {
+            System.err.println("Publish delete failed for " + path + ": " + exception);
             syncStateRepository.save(new SyncStateRecord(path, null, null, SyncStatus.FAILED, 0L));
         }
     }
@@ -118,6 +128,17 @@ public final class PublishSyncService implements SyncServiceHandle {
                 .forEach(this::tryPublish);
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to reconcile publish files in workspace: " + workspaceRoot, exception);
+        }
+    }
+
+    private void reconcileDeletedPublishFiles() {
+        for (SyncStateRecord record : syncStateRepository.findAll()) {
+            if (Files.exists(record.localPath())) {
+                continue;
+            }
+            CoursePath.parseFromWorkspace(workspaceRoot, record.localPath())
+                .filter(parsed -> parsed.leaf() == Leaf.PUBLISH)
+                .ifPresent(parsed -> tryDelete(record.localPath()));
         }
     }
 
@@ -143,6 +164,7 @@ public final class PublishSyncService implements SyncServiceHandle {
 
     private void runLoop() {
         try {
+            reconcileDeletedPublishFiles();
             reconcileExistingPublishFiles();
         } catch (RuntimeException exception) {
             System.err.println("Publish reconcile failed: " + exception);
@@ -178,5 +200,19 @@ public final class PublishSyncService implements SyncServiceHandle {
         } catch (IOException ignored) {
         }
         return false;
+    }
+
+    private boolean isAlreadySynced(Path path) {
+        return syncStateRepository.findByLocalPath(path)
+            .filter(existing -> existing.status() == SyncStatus.SYNCED)
+            .filter(existing -> existing.sha256() != null)
+            .map(existing -> {
+                try {
+                    return existing.sha256().equals(FileHasher.sha256Hex(path));
+                } catch (IOException ignored) {
+                    return false;
+                }
+            })
+            .orElse(false);
     }
 }

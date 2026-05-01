@@ -3,13 +3,14 @@ package edu.nyu.unidrive.server.controller;
 import edu.nyu.unidrive.common.dto.ApiResponse;
 import edu.nyu.unidrive.common.dto.SubmissionSummaryResponse;
 import edu.nyu.unidrive.common.dto.SubmissionUploadResponse;
-import java.util.List;
 import edu.nyu.unidrive.server.service.SubmissionService;
+import java.util.List;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -76,6 +77,16 @@ public class SubmissionController {
         } catch (SubmissionService.HashMismatchException exception) {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                 .body(ApiResponse.error("Uploaded file hash did not match the provided SHA-256."));
+        }
+    }
+
+    @DeleteMapping("/api/v1/submissions/{submissionId}")
+    public ResponseEntity<ApiResponse<Void>> deleteSubmission(@PathVariable("submissionId") String submissionId) throws Exception {
+        try {
+            submissionService.deleteSubmission(submissionId);
+            return ResponseEntity.ok(ApiResponse.ok(null, "Submission deleted successfully."));
+        } catch (SubmissionService.SubmissionNotFoundException exception) {
+            return ResponseEntity.notFound().build();
         }
     }
 }

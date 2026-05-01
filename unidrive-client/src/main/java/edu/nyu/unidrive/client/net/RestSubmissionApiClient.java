@@ -15,6 +15,8 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
@@ -93,6 +95,16 @@ public final class RestSubmissionApiClient implements SubmissionApiClient {
             byte[].class
         );
         return new DownloadedFile(extractFileName(response), response.getBody() == null ? new byte[0] : response.getBody());
+    }
+
+    @Override
+    public void deleteSubmission(String submissionId) throws IOException {
+        try {
+            restTemplate.delete(baseUrl + "/api/v1/submissions/" + submissionId);
+        } catch (HttpClientErrorException.NotFound ignored) {
+        } catch (RestClientException exception) {
+            throw new IOException("Failed to delete submission " + submissionId, exception);
+        }
     }
 
     private String extractFileName(ResponseEntity<?> response) {

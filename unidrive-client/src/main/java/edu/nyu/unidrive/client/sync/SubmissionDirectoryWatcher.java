@@ -82,13 +82,13 @@ public final class SubmissionDirectoryWatcher implements SubmissionEventSource {
                 continue;
             }
 
-            if (!Files.isRegularFile(absolutePath)) {
+            if (relativePath.getFileName() != null && "desktop.ini".equalsIgnoreCase(relativePath.getFileName().toString())) {
+                continue;
+            }
+            if (event.kind() != StandardWatchEventKinds.ENTRY_DELETE && !Files.isRegularFile(absolutePath)) {
                 continue;
             }
             if (!isSubmissionFile(absolutePath)) {
-                continue;
-            }
-            if (relativePath.getFileName() != null && "desktop.ini".equalsIgnoreCase(relativePath.getFileName().toString())) {
                 continue;
             }
 
@@ -112,6 +112,9 @@ public final class SubmissionDirectoryWatcher implements SubmissionEventSource {
         if (kind == StandardWatchEventKinds.ENTRY_CREATE) {
             return SubmissionFileEventType.CREATED;
         }
+        if (kind == StandardWatchEventKinds.ENTRY_DELETE) {
+            return SubmissionFileEventType.DELETED;
+        }
         return SubmissionFileEventType.MODIFIED;
     }
 
@@ -125,7 +128,8 @@ public final class SubmissionDirectoryWatcher implements SubmissionEventSource {
                 WatchKey key = dir.register(
                     watchService,
                     StandardWatchEventKinds.ENTRY_CREATE,
-                    StandardWatchEventKinds.ENTRY_MODIFY
+                    StandardWatchEventKinds.ENTRY_MODIFY,
+                    StandardWatchEventKinds.ENTRY_DELETE
                 );
                 watchedDirsByKey.put(key, dir);
                 return FileVisitResult.CONTINUE;

@@ -81,7 +81,7 @@ public final class PublishDirectoryWatcher implements Closeable {
                 continue;
             }
 
-            if (!Files.isRegularFile(absolutePath)) {
+            if (event.kind() != StandardWatchEventKinds.ENTRY_DELETE && !Files.isRegularFile(absolutePath)) {
                 continue;
             }
             if (!isPublishFile(absolutePath)) {
@@ -108,6 +108,9 @@ public final class PublishDirectoryWatcher implements Closeable {
         if (kind == StandardWatchEventKinds.ENTRY_CREATE) {
             return SubmissionFileEventType.CREATED;
         }
+        if (kind == StandardWatchEventKinds.ENTRY_DELETE) {
+            return SubmissionFileEventType.DELETED;
+        }
         return SubmissionFileEventType.MODIFIED;
     }
 
@@ -121,7 +124,8 @@ public final class PublishDirectoryWatcher implements Closeable {
                 WatchKey key = dir.register(
                     watchService,
                     StandardWatchEventKinds.ENTRY_CREATE,
-                    StandardWatchEventKinds.ENTRY_MODIFY
+                    StandardWatchEventKinds.ENTRY_MODIFY,
+                    StandardWatchEventKinds.ENTRY_DELETE
                 );
                 watchedDirsByKey.put(key, dir);
                 return FileVisitResult.CONTINUE;

@@ -69,6 +69,13 @@ public class AssignmentService {
         return new DownloadedAssignment(assignment.originalFileName(), Files.readAllBytes(Path.of(assignment.filePath())));
     }
 
+    public void deleteAssignment(String assignmentId, String fileName) throws IOException {
+        StoredAssignment assignment = assignmentRepository.findStoredAssignmentByIdAndFileName(assignmentId, fileName)
+            .orElseThrow(AssignmentNotFoundException::new);
+        Files.deleteIfExists(Path.of(assignment.filePath()));
+        assignmentRepository.deleteByIdAndFileName(assignmentId, fileName);
+    }
+
     private String sanitizeFileName(String originalFileName) {
         if (originalFileName == null || originalFileName.isBlank()) {
             return "assignment.bin";
