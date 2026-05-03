@@ -43,8 +43,7 @@ public class AssignmentService {
             .resolve("publish")
             .resolve(fileName);
 
-        Files.createDirectories(destination.getParent());
-        Files.write(destination, content);
+        AtomicFileWriter.write(destination, content);
         assignmentRepository.save(
             assignmentId,
             fileName,

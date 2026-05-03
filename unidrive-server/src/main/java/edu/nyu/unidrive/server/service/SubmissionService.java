@@ -57,8 +57,7 @@ public class SubmissionService {
             .resolve("student_" + studentId)
             .resolve(submissionId + "-" + fileName);
 
-        Files.createDirectories(destination.getParent());
-        Files.write(destination, content);
+        AtomicFileWriter.write(destination, content);
         submissionRepository.save(
             submissionId,
             term,

@@ -42,8 +42,7 @@ public class FeedbackService {
         String fileName = sanitizeFileName(file.getOriginalFilename());
         Path destination = storageRoot.resolve("feedback").resolve(feedbackId + "-" + fileName);
 
-        Files.createDirectories(destination.getParent());
-        Files.write(destination, content);
+        AtomicFileWriter.write(destination, content);
         feedbackRepository.save(feedbackId, submissionId, destination.toString(), sha256, System.currentTimeMillis());
 
         return new FeedbackSummaryResponse(feedbackId, submissionId, submission.studentId(), fileName, sha256);
