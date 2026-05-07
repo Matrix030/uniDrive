@@ -77,6 +77,94 @@ The repository includes `scripts/smoke-test.sh`, which builds the project, start
 
 Requires Java 21+. The project includes Maven Wrapper, so Maven does not need to be installed separately.
 
+## Fresh Machine Setup
+
+If the machine has nothing installed, install Git and Java 21 first. Maven is not required because this repository includes `mvnw`.
+
+### Linux: Ubuntu/Debian
+
+```bash
+sudo apt update
+sudo apt install -y git openjdk-21-jdk curl jq
+```
+
+### Linux: Fedora
+
+```bash
+sudo dnf install -y git java-21-openjdk-devel curl jq
+```
+
+### macOS
+
+Install Homebrew from `https://brew.sh/`, then run:
+
+```bash
+brew install git openjdk@21 curl jq
+```
+
+If Java 21 is not found after installation, add it to your shell path using Homebrew's printed instructions. On Apple Silicon Macs, this is usually:
+
+```bash
+export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
+```
+
+On Intel Macs, this is usually:
+
+```bash
+export PATH="/usr/local/opt/openjdk@21/bin:$PATH"
+```
+
+### Windows
+
+Install these tools:
+
+- Git for Windows: `https://git-scm.com/download/win`
+- Java 21 JDK, such as Temurin 21: `https://adoptium.net/temurin/releases/?version=21`
+
+Then open PowerShell or Git Bash and verify:
+
+```bash
+git --version
+java -version
+```
+
+The Java version should say `21` or newer.
+
+### Clone And Run
+
+Clone the repository and enter it:
+
+```bash
+git clone <your-github-repo-url>
+cd uniDrive
+```
+
+If using Linux or macOS and `mvnw` is not executable, run:
+
+```bash
+chmod +x mvnw scripts/smoke-test.sh
+```
+
+Verify Java:
+
+```bash
+java -version
+```
+
+Build everything once:
+
+```bash
+./mvnw clean install
+```
+
+Run the smoke test to confirm the machine is ready:
+
+```bash
+./scripts/smoke-test.sh
+```
+
+If `./scripts/smoke-test.sh` says `jq` is missing, install `jq` using the package manager commands above. `jq` is only needed for the smoke-test script, not for manually running the app.
+
 From the repository root, first install fresh module artifacts:
 
 ```bash
@@ -95,13 +183,25 @@ Run the Spring Boot server on port `8080`:
 
 Wait until you see `Started UniDriveServerApplication`.
 
-### Terminal 2: Client
+### Terminal 2: Instructor Client
 
-Run the JavaFX client:
+Run the JavaFX client for the instructor. The separate `userHome` keeps this session separate from the student client:
 
 ```bash
-./mvnw -pl unidrive-client javafx:run
+./mvnw -pl unidrive-client javafx:run -Dunidrive.userHome=target/demo-home/instructor
 ```
+
+Log in with `instructor@nyu.edu` / `password123`, then choose a workspace folder such as `demo-workspace/manual-instructor`.
+
+### Terminal 3: Student Client
+
+Run another JavaFX client for the student in a third terminal:
+
+```bash
+./mvnw -pl unidrive-client javafx:run -Dunidrive.userHome=target/demo-home/student
+```
+
+Log in with `student@nyu.edu` / `password123`, then choose a different workspace folder such as `demo-workspace/manual-student`.
 
 To override the server URL:
 
@@ -136,21 +236,24 @@ To reset the server database:
 rm -f unidrive-server/target/*.db
 ```
 
-### End-to-end demo
+### Manual Three-Terminal Demo
 
-1. Start the server.
-2. Start an instructor client and log in with `instructor@nyu.edu` / `password123`.
-3. Choose an instructor workspace folder.
-4. In the instructor dashboard, create an assignment slot or use an existing publish folder.
-5. Drop an assignment file into the assignment's `publish/` folder.
-6. Start a student client and log in with `student@nyu.edu` / `password123`.
-7. Choose a student workspace folder.
-8. Confirm the assignment appears in the student's assignment/received view after sync.
-9. Drop a solution file into the student's submission folder.
-10. Confirm the student dashboard shows the upload moving toward `SYNCED`.
-11. Confirm the instructor receives the student's submission under `Submissions/<studentId>/`.
-12. Drop a feedback file into the instructor feedback folder for that student.
-13. Confirm the student receives the feedback file after sync.
+Use three terminals so the server, instructor client, and student client all stay running:
+
+1. **Terminal 1**: start the server with `./mvnw -pl unidrive-server spring-boot:run`.
+2. **Terminal 2**: start the instructor client with `./mvnw -pl unidrive-client javafx:run -Dunidrive.userHome=target/demo-home/instructor`.
+3. **Terminal 3**: start the student client with `./mvnw -pl unidrive-client javafx:run -Dunidrive.userHome=target/demo-home/student`.
+4. In the instructor client, log in with `instructor@nyu.edu` / `password123` and choose an instructor workspace folder.
+5. In the student client, log in with `student@nyu.edu` / `password123` and choose a different student workspace folder.
+6. In the instructor dashboard, create an assignment slot for a course and assignment id.
+7. Drop or update an assignment file in the instructor workspace under `<term>/<course>/<assignment>/publish/`.
+8. Watch the student workspace: the file should sync into `<term>/<course>/<assignment>/files/`.
+9. Drop or update a student solution file in the student workspace under `<term>/<course>/<assignment>/submission/`.
+10. Watch the student dashboard move the file through sync status, and watch the instructor workspace receive it under `<term>/<course>/<assignment>/submissions/student_rvg9395/`.
+11. Drop or update a feedback file in the instructor's feedback/submission-return flow for that student.
+12. Watch the student client receive the feedback after background sync.
+
+You can keep the folders open in your file manager while both clients run. As you drop or update files in the watched folders, the background sync services upload/download them through the server and the dashboard counts update automatically.
 
 To run two clients at the same time without sharing saved sessions, use separate fake home directories:
 
