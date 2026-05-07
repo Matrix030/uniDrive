@@ -10,12 +10,12 @@ No external API key is required for this project. Authentication is implemented 
 
 Use one of these demo accounts:
 
-| Role | Email | Password | App user ID |
-|---|---|---|---|
-| Student | `student@nyu.edu` | `password123` | `rvg9395` |
-| Student | `rvg9395@nyu.edu` | `password123` | `rvg9395` |
+| Role       | Email                | Password      | App user ID          |
+| ---------- | -------------------- | ------------- | -------------------- |
+| Student    | `student@nyu.edu`    | `password123` | `rvg9395`            |
+| Student    | `rvg9395@nyu.edu`    | `password123` | `rvg9395`            |
 | Instructor | `instructor@nyu.edu` | `password123` | `instructor_rvg0000` |
-| Instructor | `rvg0000@nyu.edu` | `password123` | `instructor_rvg0000` |
+| Instructor | `rvg0000@nyu.edu`    | `password123` | `instructor_rvg0000` |
 
 ## Modules
 
@@ -86,12 +86,6 @@ If the machine has nothing installed, install Git and Java 21 first. Maven is no
 ```bash
 sudo apt update
 sudo apt install -y git openjdk-21-jdk curl jq
-```
-
-### Linux: Fedora
-
-```bash
-sudo dnf install -y git java-21-openjdk-devel curl jq
 ```
 
 ### macOS
@@ -217,9 +211,9 @@ To override the server URL:
 
 ### Folders created per role
 
-| Role | Folders |
-|---|---|
-| Student | `<term>/<course>/<assignment>/files/` for received assignment files, `<term>/<course>/<assignment>/submission/` for student uploads |
+| Role       | Folders                                                                                                                                         |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Student    | `<term>/<course>/<assignment>/files/` for received assignment files, `<term>/<course>/<assignment>/submission/` for student uploads             |
 | Instructor | `<term>/<course>/<assignment>/publish/` for assignment files, `<term>/<course>/<assignment>/submissions/student_<id>/` for received submissions |
 
 ### Subsequent launches
