@@ -89,6 +89,16 @@ Session is restored from `~/.unidrive/config.properties` — login + folder pick
 ./mvnw clean package  # build all module jars
 ```
 
+## Smoke Test
+
+Run the automated smoke test before a manual demo:
+
+```bash
+./scripts/smoke-test.sh
+```
+
+The smoke test installs fresh module artifacts, runs selected client workspace/session/sync checks, starts an isolated server on port `18080`, and verifies login, assignment, submission, feedback, download, delete, and expected error flows. Use `UNIDRIVE_SMOKE_PORT=18081 ./scripts/smoke-test.sh` if port `18080` is busy.
+
 ## Key API Endpoints
 
 ### Submissions
