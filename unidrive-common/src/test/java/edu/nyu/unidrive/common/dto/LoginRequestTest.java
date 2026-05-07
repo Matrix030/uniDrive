@@ -7,10 +7,10 @@ import org.junit.jupiter.api.Test;
 class LoginRequestTest {
 
     @Test
-    void exposesUserIdAndRole() {
-        LoginRequest request = new LoginRequest("rvg9395", "STUDENT");
+    void exposesEmailAndPassword() {
+        LoginRequest request = new LoginRequest("student@nyu.edu", "password123");
 
-        assertEquals("rvg9395", request.userId());
-        assertEquals("STUDENT", request.role());
+        assertEquals("student@nyu.edu", request.email());
+        assertEquals("password123", request.password());
     }
 }

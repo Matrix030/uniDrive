@@ -39,27 +39,29 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"userId\":\"rvg9395\",\"role\":\"STUDENT\"}"))
+                .content("{\"email\":\"rvg9395@nyu.edu\",\"password\":\"password123\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("ok"))
             .andExpect(jsonPath("$.data.userId").value("rvg9395"))
             .andExpect(jsonPath("$.data.name").value("Rishikesh"))
-            .andExpect(jsonPath("$.data.role").value("STUDENT"));
+            .andExpect(jsonPath("$.data.email").value("rvg9395@nyu.edu"))
+            .andExpect(jsonPath("$.data.role").value("STUDENT"))
+            .andExpect(jsonPath("$.data.accessToken").value("mock-sso-token-rvg9395"));
     }
 
     @Test
     void loginUpdatesRoleForExistingUser() throws Exception {
         jdbcTemplate.update("INSERT INTO users (id, name, role) VALUES (?, ?, ?)",
-            "ins1", "ins1", "STUDENT");
+            "instructor_rvg0000", "Instructor Demo", "STUDENT");
 
         mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"userId\":\"ins1\",\"role\":\"INSTRUCTOR\"}"))
+                .content("{\"email\":\"rvg0000@nyu.edu\",\"password\":\"password123\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.role").value("INSTRUCTOR"));
 
         String role = jdbcTemplate.queryForObject(
-            "SELECT role FROM users WHERE id = ?", String.class, "ins1");
+            "SELECT role FROM users WHERE id = ?", String.class, "instructor_rvg0000");
         org.junit.jupiter.api.Assertions.assertEquals("INSTRUCTOR", role);
     }
 
@@ -67,30 +69,38 @@ class AuthControllerTest {
     void loginAutoCreatesUserWhenAbsent() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"userId\":\"newuser\",\"role\":\"INSTRUCTOR\"}"))
+                .content("{\"email\":\"instructor@nyu.edu\",\"password\":\"password123\"}"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.userId").value("newuser"))
+            .andExpect(jsonPath("$.data.userId").value("instructor_rvg0000"))
             .andExpect(jsonPath("$.data.role").value("INSTRUCTOR"));
 
         String role = jdbcTemplate.queryForObject(
-            "SELECT role FROM users WHERE id = ?", String.class, "newuser");
+            "SELECT role FROM users WHERE id = ?", String.class, "instructor_rvg0000");
         org.junit.jupiter.api.Assertions.assertEquals("INSTRUCTOR", role);
     }
 
     @Test
-    void loginRejectsInvalidRole() throws Exception {
+    void loginRejectsInvalidCredentials() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"userId\":\"foo\",\"role\":\"ADMIN\"}"))
-            .andExpect(status().isBadRequest())
+                .content("{\"email\":\"student@nyu.edu\",\"password\":\"wrong\"}"))
+            .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.status").value("error"));
     }
 
     @Test
-    void loginRejectsBlankUserId() throws Exception {
+    void loginRejectsBlankEmail() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"userId\":\"\",\"role\":\"STUDENT\"}"))
+                .content("{\"email\":\"\",\"password\":\"password123\"}"))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void loginRejectsBlankPassword() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"student@nyu.edu\",\"password\":\"\"}"))
             .andExpect(status().isBadRequest());
     }
 }

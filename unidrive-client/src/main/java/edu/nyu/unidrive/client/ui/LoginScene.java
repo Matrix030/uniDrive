@@ -8,10 +8,8 @@ import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.RadioButton;
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
-import javafx.scene.control.ToggleGroup;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 public final class LoginScene {
@@ -25,32 +23,29 @@ public final class LoginScene {
     }
 
     public Scene build() {
-        TextField userIdField = new TextField();
-        userIdField.setPromptText("Enter your user ID");
+        TextField emailField = new TextField();
+        emailField.setPromptText("student@nyu.edu");
 
-        ToggleGroup roleGroup = new ToggleGroup();
-        RadioButton studentRadio = new RadioButton("Student");
-        studentRadio.setToggleGroup(roleGroup);
-        studentRadio.setSelected(true);
-        studentRadio.setUserData(UserRole.STUDENT);
-
-        RadioButton instructorRadio = new RadioButton("Instructor");
-        instructorRadio.setToggleGroup(roleGroup);
-        instructorRadio.setUserData(UserRole.INSTRUCTOR);
+        PasswordField passwordField = new PasswordField();
+        passwordField.setPromptText("password123");
 
         Label statusLabel = new Label();
 
         Button loginButton = new Button("Login");
         loginButton.setOnAction(event -> {
-            String userId = userIdField.getText() == null ? "" : userIdField.getText().trim();
-            if (userId.isEmpty()) {
-                statusLabel.setText("Please enter a user ID.");
+            String email = emailField.getText() == null ? "" : emailField.getText().trim();
+            String password = passwordField.getText() == null ? "" : passwordField.getText();
+            if (email.isEmpty()) {
+                statusLabel.setText("Please enter your NYU email.");
                 return;
             }
-            UserRole role = (UserRole) roleGroup.getSelectedToggle().getUserData();
+            if (password.isBlank()) {
+                statusLabel.setText("Please enter your password.");
+                return;
+            }
             statusLabel.setText("Authenticating...");
             try {
-                LoginResponse response = authApiClient.login(userId, role.name());
+                LoginResponse response = authApiClient.login(email, password);
                 onSuccess.onLogin(response.userId(), UserRole.valueOf(response.role()));
             } catch (IOException | RuntimeException exception) {
                 statusLabel.setText("Login failed: " + exception.getMessage());
@@ -60,10 +55,11 @@ public final class LoginScene {
         VBox root = new VBox(
             12,
             new Label("University Drive"),
-            new Label("User ID:"),
-            userIdField,
-            new Label("Role:"),
-            new HBox(12, studentRadio, instructorRadio),
+            new Label("Email:"),
+            emailField,
+            new Label("Password:"),
+            passwordField,
+            new Label("Demo accounts: student@nyu.edu or instructor@nyu.edu / password123"),
             loginButton,
             statusLabel
         );

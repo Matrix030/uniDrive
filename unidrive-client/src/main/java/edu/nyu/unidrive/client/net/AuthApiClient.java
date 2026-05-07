@@ -4,5 +4,5 @@ import edu.nyu.unidrive.common.dto.LoginResponse;
 import java.io.IOException;
 
 public interface AuthApiClient {
-    LoginResponse login(String userId, String role) throws IOException;
+    LoginResponse login(String email, String password) throws IOException;
 }

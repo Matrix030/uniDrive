@@ -24,10 +24,10 @@ public final class RestAuthApiClient implements AuthApiClient {
     }
 
     @Override
-    public LoginResponse login(String userId, String role) throws IOException {
+    public LoginResponse login(String email, String password) throws IOException {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<LoginRequest> entity = new HttpEntity<>(new LoginRequest(userId, role), headers);
+        HttpEntity<LoginRequest> entity = new HttpEntity<>(new LoginRequest(email, password), headers);
 
         ResponseEntity<String> response = restTemplate.postForEntity(
             baseUrl + "/api/v1/auth/login",
@@ -38,7 +38,9 @@ public final class RestAuthApiClient implements AuthApiClient {
         return new LoginResponse(
             dataNode.path("userId").asText(),
             dataNode.path("name").asText(),
-            dataNode.path("role").asText()
+            dataNode.path("email").asText(),
+            dataNode.path("role").asText(),
+            dataNode.path("accessToken").asText()
         );
     }
 }
